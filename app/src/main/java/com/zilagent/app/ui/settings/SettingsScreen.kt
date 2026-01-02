@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalUriHandler
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -615,8 +616,24 @@ fun DisclaimerDialog(onDismiss: () -> Unit) {
                 
                 Spacer(Modifier.height(16.dp))
                 Text("Açık Kaynak & Şeffaflık:", fontWeight = FontWeight.Bold, color = Color.White)
-                Text("ZilAgent, topluluk gelişimini desteklemek amacıyla açık kaynaklı bir proje olarak geliştirilmektedir. Kaynak kodları yakında resmi kanallar üzerinden paylaşılacaktır.", 
+                Text("ZilAgent, topluluk gelişimini desteklemek amacıyla açık kaynaklı bir proje olarak geliştirilmektedir. Kaynak kodlarına aşağıdan ulaşabilirsiniz:", 
                     fontSize = 13.sp, color = Color.White.copy(alpha = 0.8f))
+                
+                val uriHandler = LocalUriHandler.current
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { uriHandler.openUri("https://github.com/omeryol/ZilAgent") }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Code, contentDescription = null, tint = Color(0xFF64B5F6), modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("github.com/omeryol/ZilAgent", fontSize = 13.sp, color = Color(0xFF64B5F6), fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(4.dp))
+                    Icon(Icons.Default.OpenInNew, contentDescription = null, tint = Color(0xFF64B5F6), modifier = Modifier.size(12.dp))
+                }
                 
                 Spacer(Modifier.height(24.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {

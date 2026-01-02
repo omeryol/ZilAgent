@@ -1,0 +1,11 @@
+ZilAgent is a modern and user-friendly Android application designed to track school bell times and manage schedules effortlessly.
+
+Key Features:
+- Four different home screen widget styles (Modern, Panoramic, Circle and Horizontal).
+- Full control over widget customization: colors, text size, and transparency.
+- Customizable Exam Mode with large screen countdown support.
+- Over 200 built-in inspiring quotes and the ability to add your own.
+- 100% offline architecture with no internet permission required, ensuring complete privacy.
+- Manage holidays and lesson schedules with ease.
+
+ZilAgent is your stylish, open-source assistant for better time management in educational environments.

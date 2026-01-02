@@ -1,0 +1,11 @@
+ZilAgent, eğitim kurumlarındaki zil saatlerini takip etmeyi kolaylaştıran, modern ve kullanıcı dostu bir Android uygulamasıdır.
+
+Ana Özellikler:
+- Dört farklı stilde ana ekran widget'ı (Modern, Panoramik, Daire ve Yatay).
+- Widget'lar üzerinde tam renk, metin boyutu ve şeffaflık kontrolü.
+- Kişiselleştirilebilir sınav modu ile büyük ekran geri sayım desteği.
+- 200'den fazla yerleşik özlü söz ve kendi sözlerinizi ekleme imkanı.
+- İnternet gerektirmeyen %100 çevrimdışı yapı ile tam gizlilik.
+- Tatil günlerini ve ders programlarını kolayca yönetebilme.
+
+ZilAgent, zamanı daha iyi yönetmenize yardımcı olan şık ve açık kaynaklı bir yardımcıdır.

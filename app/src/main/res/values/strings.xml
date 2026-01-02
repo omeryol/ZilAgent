@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">ZilAgent</string>
+    <string name="shortcut_exam_short">Sınav Modu</string>
+    <string name="shortcut_exam_long">Sınav Sayacını Başlat</string>
+    <string name="shortcut_create_short">Yeni Program</string>
+    <string name="shortcut_create_long">Ders Programı Oluştur</string>
+</resources>

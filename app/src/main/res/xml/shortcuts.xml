@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="exam_mode"
+        android:enabled="true"
+        android:icon="@drawable/ic_launcher_foreground"
+        android:shortcutShortLabel="@string/shortcut_exam_short"
+        android:shortcutLongLabel="@string/shortcut_exam_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.zilagent.app"
+            android:targetClass="com.zilagent.app.MainActivity"
+            android:data="zilagent://exam_mode" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="create_schedule"
+        android:enabled="true"
+        android:icon="@drawable/ic_launcher_foreground"
+        android:shortcutShortLabel="@string/shortcut_create_short"
+        android:shortcutLongLabel="@string/shortcut_create_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.zilagent.app"
+            android:targetClass="com.zilagent.app.MainActivity"
+            android:data="zilagent://create_schedule" />
+    </shortcut>
+</shortcuts>

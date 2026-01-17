@@ -196,11 +196,37 @@ fun ColumnScope.TodayContent(
             modifier = Modifier.padding(20.dp).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = uiState.currentStatusText,
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.White.copy(alpha = 0.8f)
-            )
+            // Quote/Status Display Logic
+            if (uiState.isEndOfDay && uiState.currentStatusText.contains(" - ")) {
+                // It's a quote with an author
+                val parts = uiState.currentStatusText.split(" - ", limit = 2)
+                Text(
+                    text = parts[0],
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White.copy(alpha = 0.9f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "- ${parts[1]}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    color = Color.White.copy(alpha = 0.7f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                    modifier = Modifier.fillMaxWidth().padding(end = 8.dp)
+                )
+            } else {
+                // Standard Status or Anonymous Quote
+                Text(
+                    text = uiState.currentStatusText,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White.copy(alpha = 0.8f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
             val isDynamicColor = WidgetStore.isDynamicColorEnabled(LocalContext.current)
             val countdownColor = if (isDynamicColor && uiState.secondsRemaining > 0) {
                 Color(com.zilagent.app.util.TimeUtils.getCountdownColor(uiState.secondsRemaining))

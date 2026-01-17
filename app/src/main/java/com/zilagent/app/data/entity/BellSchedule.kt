@@ -20,6 +20,7 @@ import androidx.room.PrimaryKey
 data class BellSchedule(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val profileId: Long,
+    val dayOfWeek: Int, // 1 (Mon) to 7 (Sun), 0 could mean "Daily/Global"
     val name: String, // e.g., "1. Ders", "Tenefüs"
     val startTime: Int, // Minutes from midnight (e.g., 08:30 -> 510)
     val endTime: Int, // Minutes from midnight

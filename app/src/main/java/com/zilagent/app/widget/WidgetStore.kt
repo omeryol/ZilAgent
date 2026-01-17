@@ -1,24 +1,35 @@
 package com.zilagent.app.widget
 
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 
 object WidgetStore {
     const val PREFS_NAME = "zil_agent_widget_prefs"
     
-    fun updateNextBell(context: Context, name: String, targetTime: Int) {
+    fun updateNextBell(context: Context, name: String, targetTime: Int, syllabusInfo: String? = null, classColor: String? = null, startTime: Int = -1) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().apply {
             putString("NEXT_BELL_NAME", name)
             putInt("NEXT_BELL_MINUTES", targetTime)
+            putInt("NEXT_BELL_START_MINUTES", startTime)
+            putString("SYLLABUS_INFO", syllabusInfo)
+            putString("CLASS_COLOR", classColor)
             apply()
         }
         
-        // Trigger all types of widgets
-        CountdownWidget.updateAllWidgets(context)
-        HorizontalCountdownWidget.updateAll(context)
-        ModernCountdownWidget.updateAll(context)
-        PanoramicCountdownWidget.updateAll(context)
-        CircleCountdownWidget.updateAll(context)
+        triggerAll(context)
+    }
+
+    fun getSyllabusInfo(context: Context): String? {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString("SYLLABUS_INFO", null)
+    }
+
+    fun getClassColor(context: Context): String? {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString("CLASS_COLOR", null)
     }
 
     fun getNextBellName(context: Context): String? {
@@ -29,6 +40,13 @@ object WidgetStore {
     fun getNextBellTime(context: Context): Int {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getInt("NEXT_BELL_MINUTES", -1)
+    }
+    
+    fun getNextBellEndTime(context: Context): Int = getNextBellTime(context)
+    
+    fun getNextBellStartTime(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt("NEXT_BELL_START_MINUTES", -1)
     }
 
     fun setDynamicColorEnabled(context: Context, enabled: Boolean) {
@@ -164,9 +182,7 @@ object WidgetStore {
             .putInt("CUSTOM_MODE_TIME", timeMinutes)
             .apply()
         
-        CountdownWidget.updateAllWidgets(context)
-        HorizontalCountdownWidget.updateAll(context)
-        ModernCountdownWidget.updateAll(context)
+        triggerAll(context)
     }
 
     fun getCustomCountdown(context: Context): Triple<Boolean, String, Int> {
@@ -179,12 +195,12 @@ object WidgetStore {
 
     fun setThemeColorName(context: Context, colorName: String) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString("APP_THEME_COLOR_NAME", colorName).apply()
+        prefs.edit().putString("THEME_COLOR", colorName).apply()
     }
 
     fun getThemeColorName(context: Context): String {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString("APP_THEME_COLOR_NAME", "Lavanta") ?: "Lavanta"
+        return prefs.getString("THEME_COLOR", "Lavanta") ?: "Lavanta"
     }
 
     fun hasCompletedOnboarding(context: Context): Boolean {
@@ -230,12 +246,7 @@ object WidgetStore {
     fun setShowSeconds(context: Context, enabled: Boolean) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putBoolean("SHOW_SECONDS", enabled).apply()
-        
-        CountdownWidget.updateAllWidgets(context)
-        HorizontalCountdownWidget.updateAll(context)
-        ModernCountdownWidget.updateAll(context)
-        PanoramicCountdownWidget.updateAll(context)
-        CircleCountdownWidget.updateAll(context)
+        triggerAll(context)
     }
 
     fun isShowSeconds(context: Context): Boolean {
@@ -246,7 +257,7 @@ object WidgetStore {
     fun setMultilineEnabled(context: Context, enabled: Boolean) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putBoolean("MULTILINE_ENABLED", enabled).apply()
-        setShowSeconds(context, isShowSeconds(context))
+        triggerAll(context)
     }
 
     fun isMultilineEnabled(context: Context): Boolean {
@@ -257,7 +268,7 @@ object WidgetStore {
     fun setProgressBarEnabled(context: Context, enabled: Boolean) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putBoolean("PROGRESS_BAR_ENABLED", enabled).apply()
-        setShowSeconds(context, isShowSeconds(context))
+        triggerAll(context)
     }
 
     fun isProgressBarEnabled(context: Context): Boolean {
@@ -311,10 +322,12 @@ object WidgetStore {
     }
 
     private fun triggerAll(context: Context) {
-        CountdownWidget.updateAllWidgets(context)
-        HorizontalCountdownWidget.updateAll(context)
-        ModernCountdownWidget.updateAll(context)
         PanoramicCountdownWidget.updateAll(context)
-        CircleCountdownWidget.updateAll(context)
+        SyllabusWidget.updateAll(context)
+        try {
+            val intent = Intent("com.zilagent.app.WIDGET_UPDATE")
+            intent.setPackage(context.packageName)
+            context.sendBroadcast(intent)
+        } catch (e: Exception) {}
     }
 }

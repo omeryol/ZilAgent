@@ -71,42 +71,75 @@ class BellReceiver : BroadcastReceiver() {
                         } else if (isHoliday) {
                             WidgetStore.setCurrentEventTimes(context, -1, -1)
                             val quote = com.zilagent.app.util.QuoteConstants.getRandomQuoteFromDb(db.quoteDao())
-                            WidgetStore.updateNextBell(context, quote, -1)
+                            WidgetStore.updateNextBell(context, "🌴 Tatil • $quote", -1)
                         } else {
-                            val schedules = db.bellDao().getSchedulesForProfileSync(profile.id)
+                            val today = java.time.LocalDate.now().dayOfWeek.value
+                            val schedules = db.bellDao().getSchedulesForProfileSync(profile.id, today)
+                            
                             val nextEvent = schedules.firstOrNull { it.endTime > nowMinutes }
+                            
                             if (nextEvent != null) {
                                 val isOngoing = nowMinutes >= nextEvent.startTime
                                 
-                            val separator = if (WidgetStore.isMultilineEnabled(context)) "\n" else " • "
-                            
-                            val title = when {
-                                isOngoing && !nextEvent.isBreak -> "⏳ ${nextEvent.name}${separator}Bitiş: ${com.zilagent.app.util.TimeUtils.minutesToTime(nextEvent.endTime)}"
-                                isOngoing && nextEvent.isBreak -> "☕ ${nextEvent.name}${separator}Giriş: ${com.zilagent.app.util.TimeUtils.minutesToTime(nextEvent.endTime)}"
-                                !isOngoing -> "🔔 ${nextEvent.name}${separator}Giriş: ${com.zilagent.app.util.TimeUtils.minutesToTime(nextEvent.startTime)}"
-                                else -> nextEvent.name
-                            }
+                                val separator = " • "
+                                
+                                val title = when {
+                                    isOngoing && !nextEvent.isBreak -> "⏳ ${nextEvent.name}${separator}Bitiş: ${com.zilagent.app.util.TimeUtils.minutesToTime(nextEvent.endTime)}"
+                                    isOngoing && nextEvent.isBreak -> "☕ ${nextEvent.name}${separator}Giriş: ${com.zilagent.app.util.TimeUtils.minutesToTime(nextEvent.endTime)}"
+                                    !isOngoing -> "🔔 ${nextEvent.name}${separator}Giriş: ${com.zilagent.app.util.TimeUtils.minutesToTime(nextEvent.startTime)}"
+                                    else -> nextEvent.name
+                                }
+    
+                                val targetTime = if (isOngoing) nextEvent.endTime else nextEvent.startTime
+                                
+                                var syllabusInfo: String? = null
+                                var classColor: String? = null
+                                
+                                if (!nextEvent.isBreak) {
+                                    // Count previous lessons to find order
+                                    val lessonOrder = schedules.filter { !it.isBreak }.indexOf(nextEvent) + 1
+                                    val fullInfo = db.syllabusDao().getFullSyllabusEntrySync(profile.id, today, lessonOrder)
+                                    if (fullInfo != null) {
+                                        val className = fullInfo.className
+                                        val subName = fullInfo.subjectName
+                                        if (className != null && subName != null) {
+                                            syllabusInfo = "$className - $subName"
+                                            classColor = fullInfo.classColor
+                                        } else if (className != null) {
+                                            syllabusInfo = className
+                                            classColor = fullInfo.classColor
+                                        } else if (subName != null) {
+                                            syllabusInfo = subName
+                                        }
+                                    }
+                                }
 
-                            val targetTime = if (isOngoing) nextEvent.endTime else nextEvent.startTime
-                            
-                            if (isOngoing) {
-                                WidgetStore.setCurrentEventTimes(context, nextEvent.startTime, nextEvent.endTime)
-                            } else {
-                                // Progress during break: from previous event end to next event start
-                                val previousEvent = schedules.lastOrNull { it.endTime <= nowMinutes }
-                                // If first lesson of the day, use 0 or a reasonable start if you want. 
-                                // Let's use previous event end or 0 if none.
-                                val startTime = previousEvent?.endTime ?: 0
-                                WidgetStore.setCurrentEventTimes(context, startTime, nextEvent.startTime)
-                            }
-                            WidgetStore.updateNextBell(context, title, targetTime)
+                                val eventStartTime = if (isOngoing) {
+                                    nextEvent.startTime
+                                } else {
+                                    val previousEvent = schedules.lastOrNull { it.endTime <= nowMinutes }
+                                    previousEvent?.endTime ?: 0
+                                }
+                                
+                                WidgetStore.setCurrentEventTimes(context, eventStartTime, targetTime)
+                                
+                                // Construct the final title with syllabus info if available
+                                val displayTitle = if (syllabusInfo != null) {
+                                    val prefix = if (isOngoing) "⏳ " else "🔔 "
+                                    val suffix = if (isOngoing) "Bitiş: ${com.zilagent.app.util.TimeUtils.minutesToTime(nextEvent.endTime)}" 
+                                                 else "Giriş: ${com.zilagent.app.util.TimeUtils.minutesToTime(nextEvent.startTime)}"
+                                    "$prefix$syllabusInfo • $suffix"
+                                } else {
+                                    title
+                                }
+
+                                WidgetStore.updateNextBell(context, displayTitle, targetTime, syllabusInfo, classColor, eventStartTime)
                             } else {
                                 WidgetStore.setCurrentEventTimes(context, -1, -1)
-                                // Enhanced End of Day Message
                                 val hour = now.hour
                                 val baseMsg = when {
                                     hour >= 21 || hour < 5 -> "🌙 İyi Geceler"
-                                     hour >= 17 -> "🌆 İyi Akşamlar"
+                                    hour >= 17 -> "🌆 İyi Akşamlar"
                                     else -> "🔋 Dinlenme Vakti"
                                 }
                                 val quote = com.zilagent.app.util.QuoteConstants.getRandomQuoteFromDb(db.quoteDao())
@@ -138,11 +171,8 @@ class BellReceiver : BroadcastReceiver() {
     }
 
     private fun updateAllWidgets(context: Context) {
-        com.zilagent.app.widget.CountdownWidget.updateAllWidgets(context)
-        com.zilagent.app.widget.HorizontalCountdownWidget.updateAll(context)
-        com.zilagent.app.widget.ModernCountdownWidget.updateAll(context)
         com.zilagent.app.widget.PanoramicCountdownWidget.updateAll(context)
-        com.zilagent.app.widget.CircleCountdownWidget.updateAll(context)
+        com.zilagent.app.widget.SyllabusWidget.updateAll(context)
     }
 
     private fun handleDnd(context: Context, enable: Boolean) {

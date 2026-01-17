@@ -6,7 +6,6 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
@@ -60,39 +59,7 @@
             </intent-filter>
         </receiver>
 
-        <receiver
-            android:name=".widget.CountdownWidget"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info" />
-        </receiver>
-
-        <receiver
-            android:name=".widget.HorizontalCountdownWidget"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info_horizontal" />
-        </receiver>
-
-        <receiver
-            android:name=".widget.ModernCountdownWidget"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info_modern" />
-        </receiver>
-
+        <!-- Main Panoramic Widget -->
         <receiver
             android:name=".widget.PanoramicCountdownWidget"
             android:exported="true"
@@ -105,17 +72,22 @@
                 android:resource="@xml/widget_info_panoramic" />
         </receiver>
 
+        <!-- Syllabus Widget -->
         <receiver
-            android:name=".widget.CircleCountdownWidget"
+            android:name=".widget.SyllabusWidget"
             android:exported="true"
-            android:label="Halka Sayaç (Mini)">
+            android:label="Ders Programı">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info_circle" />
+                android:resource="@xml/widget_info_syllabus" />
         </receiver>
+
+        <service
+            android:name=".widget.SyllabusWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
 
         <!-- Quick Settings Tile -->
         <service

@@ -14,9 +14,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -66,6 +67,8 @@ fun ExamModeScreen(
     val examDurationMinutes by viewModel.examDurationMinutes.collectAsState()
     val isRunning by viewModel.isRunning.collectAsState()
     val elapsedSeconds by viewModel.elapsedSeconds.collectAsState()
+
+    var clockScale by remember { mutableStateOf(1.0f) }
 
     // Keep Screen On Logic
     DisposableEffect(Unit) {
@@ -172,11 +175,33 @@ fun ExamModeScreen(
                 
                 GlassCard(modifier = Modifier.padding(horizontal = 16.dp)) {
                     Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(TimeUtils.formatCountdown(remainingSeconds), style = MaterialTheme.typography.displayLarge.copy(fontSize = 72.sp, fontFeatureSettings = "tnum"), color = Color.White, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(20.dp))
-                        LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth().height(12.dp), color = progressColor, trackColor = Color.White.copy(alpha = 0.2f))
+                        Text(
+                            text = TimeUtils.formatCountdown(remainingSeconds), 
+                            style = MaterialTheme.typography.displayLarge.copy(
+                                fontSize = (72 * clockScale).sp, 
+                                fontFeatureSettings = "tnum"
+                            ), 
+                            color = Color.White, 
+                            fontWeight = FontWeight.Bold
+                        )
                         Spacer(modifier = Modifier.height(24.dp))
                         Text("GEÇEN: ${TimeUtils.formatCountdown(elapsedSeconds)}", color = Color.White.copy(alpha = 0.6f), fontWeight = FontWeight.Bold)
+                        
+                        // Scale Controls
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.padding(top = 16.dp)
+                        ) {
+                            IconButton(onClick = { clockScale = (clockScale - 0.1f).coerceAtLeast(0.5f) }) {
+                                Icon(Icons.Default.Remove, null, tint = Color.White.copy(alpha = 0.5f))
+                            }
+                            IconButton(onClick = { clockScale = 1.0f }) {
+                                Icon(Icons.Default.Refresh, null, tint = Color.White.copy(alpha = 0.5f))
+                            }
+                            IconButton(onClick = { clockScale = (clockScale + 0.1f).coerceAtMost(3.0f) }) {
+                                Icon(Icons.Default.Add, null, tint = Color.White.copy(alpha = 0.5f))
+                            }
+                        }
                     }
                 }
 
@@ -199,32 +224,78 @@ fun ExamModeScreen(
             }
         } else {
             // LANDSCAPE MODE (Full Screen Digital Clock)
-            Column(
-                modifier = Modifier.fillMaxSize().padding(16.dp).clickable { viewModel.toggleRunning() },
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+            Box(
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = TimeUtils.formatCountdown(remainingSeconds),
-                    style = MaterialTheme.typography.displayLarge.copy(fontSize = 160.sp, fontFeatureSettings = "tnum"),
-                    color = Color.White,
-                    fontWeight = FontWeight.Black
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                LinearProgressIndicator(
-                    progress = progress,
-                    modifier = Modifier.fillMaxWidth(0.8f).height(12.dp),
-                    color = progressColor,
-                    trackColor = Color.White.copy(alpha = 0.2f)
-                )
-                if (!isRunning) {
-                     Text("DURAKLATILDI", color = Color.White.copy(alpha = 0.5f), fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = TimeUtils.formatCountdown(remainingSeconds),
+                        style = MaterialTheme.typography.displayLarge.copy(
+                            fontSize = (160 * clockScale).sp, 
+                            fontFeatureSettings = "tnum",
+                            lineHeight = (140 * clockScale).sp, // Even tighter line height
+                            platformStyle = androidx.compose.ui.text.PlatformTextStyle(
+                                includeFontPadding = false
+                            )
+                        ),
+                        modifier = Modifier.padding(top = 0.dp),
+                        color = Color.White,
+                        fontWeight = FontWeight.Black
+                    )
+                    
+                    LinearProgressIndicator(
+                        progress = progress,
+                        modifier = Modifier.fillMaxWidth(0.9f).height(12.dp),
+                        color = progressColor,
+                        trackColor = Color.White.copy(alpha = 0.2f)
+                    )
+    
+                    if (!isRunning) {
+                         Text("DURAKLATILDI", color = Color.White.copy(alpha = 0.5f), fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+                    }
                 }
             }
             
-            // Minimalist Close in Landscape
-            IconButton(onClick = { onClose() }, modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)) {
-                Icon(Icons.Default.Close, null, tint = Color.White.copy(alpha = 0.3f))
+            // Minimalist Close and Controls in Landscape
+            Row(
+                modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                IconButton(onClick = { onClose() }) {
+                    Icon(Icons.Default.Close, null, tint = Color.White.copy(alpha = 0.5f))
+                }
+                
+                // Specific Play/Pause Button as requested
+                androidx.compose.material3.FilledTonalButton(
+                    onClick = { viewModel.toggleRunning() },
+                    colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                         containerColor = if (isRunning) Color(0xFFFF9800).copy(alpha = 0.2f) else Color(0xFF4CAF50).copy(alpha = 0.2f),
+                         contentColor = if (isRunning) Color(0xFFFF9800) else Color(0xFF4CAF50)
+                    ),
+                    modifier = Modifier.height(48.dp)
+                ) {
+                    Icon(
+                        if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (isRunning) "Durdur" else "Devam Et")
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { clockScale = (clockScale - 0.1f).coerceAtLeast(0.5f) }) {
+                        Icon(Icons.Default.Remove, null, tint = Color.White.copy(alpha = 0.3f))
+                    }
+                    IconButton(onClick = { clockScale = 1.0f }) {
+                        Icon(Icons.Default.Refresh, null, tint = Color.White.copy(alpha = 0.3f))
+                    }
+                    IconButton(onClick = { clockScale = (clockScale + 0.1f).coerceAtMost(5.0f) }) {
+                        Icon(Icons.Default.Add, null, tint = Color.White.copy(alpha = 0.3f))
+                    }
+                }
             }
         }
     }

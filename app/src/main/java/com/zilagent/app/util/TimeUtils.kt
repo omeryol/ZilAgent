@@ -1,5 +1,6 @@
 package com.zilagent.app.util
 
+import androidx.compose.ui.graphics.Color
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
@@ -44,5 +45,18 @@ object TimeUtils {
         } else {
             String.format("%02d:%02d", m, s)
         }
+    }
+
+    fun getCountdownColor(secondsRemaining: Long): Int {
+        if (secondsRemaining <= 0) return 0xFFFFFFFF.toInt()
+        
+        // Linear transition from Green (300s+) to Red (0s)
+        val ratio = (secondsRemaining.toFloat() / 300f).coerceIn(0f, 1f)
+        // Green: 0xFF4CAF50, Red: 0xFFF44336
+        val r = (0xF4 + (0x4C - 0xF4) * ratio).toInt()
+        val g = (0x43 + (0xAF - 0x43) * ratio).toInt()
+        val b = (0x36 + (0x50 - 0x36) * ratio).toInt()
+        
+        return (0xFF shl 24) or (r shl 16) or (g shl 8) or b
     }
 }

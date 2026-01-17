@@ -50,15 +50,7 @@ fun OnboardingScreen(onFinish: () -> Unit) {
         )
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(Color(0xFFE0C3FC), Color(0xFF8EC5FC))
-                )
-            )
-    ) {
+    com.zilagent.app.ui.components.ZilAgentBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()

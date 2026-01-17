@@ -23,6 +23,14 @@ class ZilAgentApp : Application() {
                 val systemQuotes = QuoteConstants.HOLIDAY_QUOTES.map { Quote(content = it, isSystem = true) }
                 dao.insertQuotes(systemQuotes)
             }
+
+            // Sync System Subjects
+            val syllabusDao = db.syllabusDao()
+            if (syllabusDao.getSystemSubjectCount() == 0) {
+                com.zilagent.app.util.SubjectConstants.MIDDLE_SCHOOL_SUBJECTS.forEach {
+                    syllabusDao.insertSubject(com.zilagent.app.data.entity.SchoolSubject(name = it, isSystem = true))
+                }
+            }
         }
     }
 }

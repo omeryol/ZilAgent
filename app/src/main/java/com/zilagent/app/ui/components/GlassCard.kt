@@ -26,17 +26,17 @@ fun GlassCard(
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF1E1E1E).copy(alpha = 0.85f), // Darker, cleaner background
-                        Color(0xFF1E1E1E).copy(alpha = 0.60f)
+                        Color.Black.copy(alpha = 0.55f),
+                        Color.Black.copy(alpha = 0.35f)
                     )
                 )
             )
             .border(
-                width = 2.dp,
+                width = 1.dp,
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.6f),
-                        Color.White.copy(alpha = 0.1f)
+                        Color.White.copy(alpha = 0.3f),
+                        Color.White.copy(alpha = 0.05f)
                     )
                 ),
                 shape = RoundedCornerShape(cornerRadius)

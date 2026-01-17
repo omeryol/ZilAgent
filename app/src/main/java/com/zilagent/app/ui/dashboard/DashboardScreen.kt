@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,14 +30,20 @@ import com.zilagent.app.ui.components.GlassCard
 import com.zilagent.app.ui.components.MorphingBackground
 import com.zilagent.app.ui.components.GradientIcon
 import com.zilagent.app.ui.components.IconGradients
+import com.zilagent.app.ui.components.UserManualDialog
 import com.zilagent.app.util.TimeUtils
+import com.zilagent.app.widget.WidgetStore
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun DashboardScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToCreate: () -> Unit,
     onNavigateToExamMode: () -> Unit,
     onNavigateToProfiles: () -> Unit,
+    onNavigateToClasses: () -> Unit,
+    onNavigateToSubjects: () -> Unit,
     viewModel: DashboardViewModel = viewModel(factory = DashboardViewModel.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -44,16 +51,28 @@ fun DashboardScreen(
     val haptic = LocalHapticFeedback.current
     
     val colorPaletteName = remember { com.zilagent.app.widget.WidgetStore.getThemeColorName(context) }
-    val colorPalette = when (colorPaletteName) {
-        "Okyanus" -> Pair(Color(0xFF4FACFE), Color(0xFF00F2FE))
-        "Orman" -> Pair(Color(0xFF43E97B), Color(0xFF38F9D7))
-        "Gece" -> Pair(Color(0xFF243B55), Color(0xFF141E30))
-        "Ateş" -> Pair(Color(0xFFF093FB), Color(0xFFF5576C))
-        "Güneş" -> Pair(Color(0xFFF6D365), Color(0xFFFDA085))
-        else -> Pair(Color(0xFFE0C3FC), Color(0xFF8EC5FC)) // Lavanta
-    }
+    val colorPalette = com.zilagent.app.ui.theme.ThemePalette.getPalette(colorPaletteName)
 
     val editingItem = remember { mutableStateOf<BellSchedule?>(null) }
+    var selectedTabIndex by remember { mutableStateOf(0) }
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState { 2 }
+    val scope = rememberCoroutineScope()
+    var showManual by remember { mutableStateOf(false) }
+
+    // Back button behavior: if on syllabus tab, go back to today tab
+    androidx.activity.compose.BackHandler(enabled = selectedTabIndex != 0) {
+        scope.launch {
+            pagerState.animateScrollToPage(0)
+        }
+    }
+
+    LaunchedEffect(pagerState.currentPage) {
+        selectedTabIndex = pagerState.currentPage
+    }
+
+    if (showManual) {
+        UserManualDialog(onDismiss = { showManual = false })
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         MorphingBackground(colorPalette = colorPalette)
@@ -86,6 +105,9 @@ fun DashboardScreen(
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        IconButton(onClick = { showManual = true }) {
+                            GradientIcon(icon = Icons.Default.HelpOutline, gradient = IconGradients.Blue, size = 40.dp, iconSize = 20.dp)
+                        }
                         IconButton(onClick = onNavigateToProfiles) {
                             GradientIcon(icon = Icons.Default.Groups, gradient = IconGradients.Purple, size = 40.dp, iconSize = 20.dp)
                         }
@@ -101,98 +123,56 @@ fun DashboardScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 2. Status Card
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(20.dp).fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = uiState.currentStatusText,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
-                    Text(
-                        text = TimeUtils.formatCountdown(uiState.secondsRemaining),
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    uiState.nextBell?.let {
-                        Text(
-                            text = "Bitiş: ${TimeUtils.minutesToTime(it.endTime)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.6f)
+            TabRow(
+                selectedTabIndex = selectedTabIndex,
+                containerColor = Color.Transparent,
+                contentColor = Color.White,
+                divider = {},
+                indicator = { tabPositions ->
+                    if (selectedTabIndex < tabPositions.size) {
+                        TabRowDefaults.Indicator(
+                            modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
+                            color = Color.White
                         )
                     }
                 }
+            ) {
+                Tab(
+                    selected = selectedTabIndex == 0,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
+                    text = { Text("Bugün", fontWeight = FontWeight.Bold) }
+                )
+                Tab(
+                    selected = selectedTabIndex == 1,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
+                    text = { Text("Ders Programı", fontWeight = FontWeight.Bold) }
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-
-            // 3. Schedule List or Empty State
-            if (uiState.schedule.isEmpty()) {
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(com.zilagent.app.R.raw.empty_animation))
-                        LottieAnimation(
-                            composition = composition,
-                            iterations = LottieConstants.IterateForever,
-                            modifier = Modifier.size(220.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            "Henüz bir program eklenmemiş",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = Color.White.copy(alpha = 0.5f)
-                        )
+            
+            androidx.compose.foundation.pager.HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.Top,
+                beyondBoundsPageCount = 1
+            ) { page ->
+                if (page == 0) {
+                    Column {
+                        TodayContent(uiState, editingItem)
                     }
+                } else {
+                    com.zilagent.app.ui.syllabus.SyllabusTabView(
+                        onNavigateToClasses = onNavigateToClasses,
+                        onNavigateToSubjects = onNavigateToSubjects
+                    )
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(bottom = 80.dp)
-                ) {
-                    itemsIndexed(uiState.schedule) { index, item ->
-                        val isActive = uiState.activeItemId == item.id
-                        val isLast = index == uiState.schedule.size - 1
-                        ScheduleItemRow(
-                            item = item,
-                            isActive = isActive,
-                            isLast = isLast,
-                            onClick = { editingItem.value = item }
-                        )
-                    }
-                }
-            }
-        }
-
-        // 4. Floating Action Button
-        FloatingActionButton(
-            onClick = onNavigateToCreate,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(24.dp)
-                .size(64.dp)
-                .shadow(8.dp, CircleShape),
-            containerColor = Color.Transparent,
-            elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(CircleShape)
-                    .background(Brush.linearGradient(IconGradients.Pink)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Ekle", tint = Color.White, modifier = Modifier.size(32.dp))
             }
         }
 
         // Edit Dialog
         if (editingItem.value != null) {
-            com.zilagent.app.ui.dashboard.EditScheduleDialog(
+            EditScheduleDialog(
                 item = editingItem.value!!,
                 onDismiss = { editingItem.value = null },
                 onConfirm = { newStart, newDuration, notifyStart, notifyEnd ->
@@ -200,6 +180,86 @@ fun DashboardScreen(
                     editingItem.value = null
                 }
             )
+        }
+    }
+}
+
+@Composable
+fun ColumnScope.TodayContent(
+    uiState: DashboardUiState,
+    editingItem: MutableState<BellSchedule?>
+) {
+    val context = LocalContext.current
+    // 2. Status Card
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(20.dp).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = uiState.currentStatusText,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White.copy(alpha = 0.8f)
+            )
+            val isDynamicColor = WidgetStore.isDynamicColorEnabled(LocalContext.current)
+            val countdownColor = if (isDynamicColor && uiState.secondsRemaining > 0) {
+                Color(com.zilagent.app.util.TimeUtils.getCountdownColor(uiState.secondsRemaining))
+            } else {
+                Color.White
+            }
+
+            Text(
+                text = TimeUtils.formatCountdown(uiState.secondsRemaining),
+                style = MaterialTheme.typography.displayMedium,
+                fontWeight = FontWeight.Bold,
+                color = countdownColor
+            )
+            uiState.nextBell?.let {
+                Text(
+                    text = "Bitiş: ${TimeUtils.minutesToTime(it.endTime)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.6f)
+                )
+            }
+        }
+    }
+
+    Spacer(modifier = Modifier.height(16.dp))
+
+    // 3. Schedule List or Empty State
+    if (uiState.schedule.isEmpty()) {
+        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(com.zilagent.app.R.raw.empty_animation))
+                LottieAnimation(
+                    composition = composition,
+                    iterations = LottieConstants.IterateForever,
+                    modifier = Modifier.size(220.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Henüz bir program eklenmemiş",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White.copy(alpha = 0.5f)
+                )
+            }
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(bottom = 80.dp)
+        ) {
+            itemsIndexed(uiState.schedule) { index, item ->
+                val isActive = uiState.activeItemId == item.id
+                val isLast = index == uiState.schedule.size - 1
+                ScheduleItemRow(
+                    item = item,
+                    isActive = isActive,
+                    isLast = isLast,
+                    onClick = { editingItem.value = item }
+                )
+            }
         }
     }
 }

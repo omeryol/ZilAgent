@@ -24,19 +24,30 @@ class BellManager(private val context: Context) {
         val now = LocalTime.now()
         val nowMinutes = now.hour * 60 + now.minute
 
+        // Cancel all previous alarms for this package
+        // In a real app, you'd use specific IDs. Here we use 10*id + offset.
+        // For simplicity, we assume previous ones are overwritten if same request code is used.
+
         schedules.forEach { schedule ->
-            if (schedule.notifyAtStart && schedule.startTime > nowMinutes) {
-                scheduleAlarm(schedule.startTime, "${schedule.name} Başlıyor", schedule.id.toInt() * 10 + 1, false, !schedule.isBreak)
+            // Notify 1 minute before lesson STARTS
+            if (schedule.notifyAtStart && (schedule.startTime - 1) > nowMinutes) {
+                scheduleAlarm(schedule.startTime - 1, "${schedule.name} Başlamasına 1 Dakika Kaldı", schedule.id.toInt() * 10 + 1, false, !schedule.isBreak)
             }
+            // Notify 1 minute before lesson ENDS
             if (schedule.notifyAtEnd && (schedule.endTime - 1) > nowMinutes) {
-                scheduleAlarm(schedule.endTime - 1, "${schedule.name} Sona Eriyor", schedule.id.toInt() * 10 + 2, false, null)
+                scheduleAlarm(schedule.endTime - 1, "${schedule.name} Bitmesine 1 Dakika Kaldı", schedule.id.toInt() * 10 + 2, false, null)
+            }
+            // Update widget EXACTLY at lesson START and END
+            if (schedule.startTime > nowMinutes) {
+                 scheduleAlarm(schedule.startTime, "Widget Update (Start)", schedule.id.toInt() * 10 + 4, true, null)
             }
             if (schedule.endTime > nowMinutes) {
-                scheduleAlarm(schedule.endTime, "Widget Update", schedule.id.toInt() * 10 + 3, true, if (!schedule.isBreak) false else null)
+                scheduleAlarm(schedule.endTime, "Widget Update (End)", schedule.id.toInt() * 10 + 3, true, if (!schedule.isBreak) false else null)
             }
         }
         
         refreshWidgetState()
+        // We still keep the heartbeat for extra safety, but rely mainly on event-based updates
         scheduleMinuteTick()
     }
 

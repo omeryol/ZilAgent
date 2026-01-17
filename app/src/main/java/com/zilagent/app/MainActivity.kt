@@ -25,24 +25,23 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             // Reactive Theme Mode State
+            // Reactive Theme States
             var themeModeState by remember { mutableStateOf(WidgetStore.getThemeMode(this)) }
+            var themeColorState by remember { mutableStateOf(WidgetStore.getThemeColorName(this)) }
             
-            // Hold a strong reference to the listener to prevent it from being garbage collected (SharedPreferences uses WeakRef)
             val listener = remember {
                 SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
-                    if (key == "THEME_MODE") {
-                        themeModeState = prefs.getInt(key, 0)
+                    when (key) {
+                        "THEME_MODE" -> themeModeState = prefs.getInt(key, 0)
+                        "THEME_COLOR" -> themeColorState = prefs.getString(key, "Lavanta") ?: "Lavanta"
                     }
                 }
             }
             
-            // Listen to changes in SharedPreferences
             DisposableEffect(Unit) {
                 val prefs = getSharedPreferences(WidgetStore.PREFS_NAME, Context.MODE_PRIVATE)
                 prefs.registerOnSharedPreferenceChangeListener(listener)
-                onDispose {
-                    prefs.unregisterOnSharedPreferenceChangeListener(listener)
-                }
+                onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
             }
 
             val isDark = when(themeModeState) {
@@ -51,7 +50,7 @@ class MainActivity : ComponentActivity() {
                 else -> isSystemInDarkTheme()
             }
 
-            ZilAgentTheme(darkTheme = isDark) {
+            ZilAgentTheme(darkTheme = isDark, colorPaletteName = themeColorState, dynamicColor = false) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -92,12 +91,17 @@ fun ZilAgentAppNavHost(startExamMode: Boolean = false) {
                 onNavigateToSettings = { navController.navigate("settings") },
                 onNavigateToCreate = { navController.navigate("create_schedule") },
                 onNavigateToExamMode = { navController.navigate("exam_mode") },
-                onNavigateToProfiles = { navController.navigate("profiles") }
+                onNavigateToProfiles = { navController.navigate("profiles") },
+                onNavigateToClasses = { navController.navigate("classes") },
+                onNavigateToSubjects = { navController.navigate("subjects") }
             )
         }
         composable("profiles") {
             com.zilagent.app.ui.profiles.ProfilesScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToEdit = { profileId ->
+                    navController.navigate("create_schedule?profileId=$profileId")
+                }
             )
         }
         composable("settings") {
@@ -107,11 +111,19 @@ fun ZilAgentAppNavHost(startExamMode: Boolean = false) {
             )
         }
         composable(
-            route = "create_schedule",
+            route = "create_schedule?profileId={profileId}",
+            arguments = listOf(
+                androidx.navigation.navArgument("profileId") {
+                    type = androidx.navigation.NavType.LongType
+                    defaultValue = -1L
+                }
+            ),
             deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "zilagent://create_schedule" })
-        ) {
+        ) { backStackEntry ->
+            val profileId = backStackEntry.arguments?.getLong("profileId") ?: -1L
             com.zilagent.app.ui.settings.CreateScheduleScreen(
-                onSaveComplete = { navController.popBackStack() }
+                onSaveComplete = { navController.popBackStack() },
+                profileId = profileId
             )
         }
         composable(
@@ -120,6 +132,16 @@ fun ZilAgentAppNavHost(startExamMode: Boolean = false) {
         ) {
             com.zilagent.app.ui.exam.ExamModeScreen(
                 onClose = { navController.popBackStack() }
+            )
+        }
+        composable("classes") {
+            com.zilagent.app.ui.syllabus.ClassManagementScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable("subjects") {
+            com.zilagent.app.ui.syllabus.SubjectManagementScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

@@ -107,6 +107,13 @@ class PanoramicCountdownWidget : AppWidgetProvider() {
                 val secondsDiff = (endTimeMinutes * 60 - now.toSecondOfDay()).toLong()
                 
                 if (secondsDiff > 0) {
+                    val isDynamicColor = WidgetStore.isDynamicColorEnabled(context)
+                    val activeColor = if (isDynamicColor) {
+                        com.zilagent.app.util.TimeUtils.getCountdownColor(secondsDiff)
+                    } else textColor
+
+                    views.setTextColor(R.id.widget_chronometer, activeColor)
+
                     if (WidgetStore.isShowSeconds(context)) {
                         val baseTime = SystemClock.elapsedRealtime() + (secondsDiff * 1000)
                         views.setChronometer(R.id.widget_chronometer, baseTime, null, true)

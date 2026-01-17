@@ -12,12 +12,15 @@ import com.zilagent.app.data.AppDatabase
 import com.zilagent.app.data.dao.BellDao
 import com.zilagent.app.data.entity.Profile
 import com.zilagent.app.domain.ScheduleGenerator
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 data class CreateScheduleUiState(
+    val editProfileId: Long = -1L,
+    val selectedDays: Set<Int> = setOf(1, 2, 3, 4, 5), // Default Mon-Fri
     val profileName: String = "Normal",
     val lessonCount: String = "8",
     val lessonDuration: String = "40",
@@ -26,6 +29,7 @@ data class CreateScheduleUiState(
     val lunchBreakAfter: String = "5",
     val lunchBreakDuration: String = "40",
     val morningAssemblyDuration: String = "10",
+    val preBellDuration: String = "0", // 0 mean disabled
     val countdownColorEnabled: Boolean = false,
     // Custom Countdown
     val customModeEnabled: Boolean = false,
@@ -38,12 +42,90 @@ data class CreateScheduleUiState(
 class CreateScheduleViewModel(
     application: android.app.Application,
     private val bellDao: BellDao,
-    private val bellManager: com.zilagent.app.manager.BellManager
+    private val bellManager: com.zilagent.app.manager.BellManager,
+    private val profileId: Long = -1L
 ) : androidx.lifecycle.AndroidViewModel(application) {
 
-    private val _uiState = MutableStateFlow(CreateScheduleUiState())
+    private val _uiState = MutableStateFlow(CreateScheduleUiState(editProfileId = profileId))
     val uiState: StateFlow<CreateScheduleUiState> = _uiState.asStateFlow()
 
+    init {
+        if (profileId != -1L) {
+            loadProfileData(profileId)
+        }
+    }
+
+    private fun loadProfileData(id: Long) {
+        viewModelScope.launch {
+            val profile = bellDao.getAllProfiles().first().find { it.id == id }
+            if (profile != null) {
+                // Fetch schedules for Monday (day 1) to infer settings
+                val schedules = bellDao.getSchedulesForProfileSync(id, 1)
+                
+                if (schedules.isNotEmpty()) {
+                    val lessons = schedules.filter { !it.isBreak && it.name.contains("Yazma") == false && it.name.contains("Töreni") == false}
+                    val firstLesson = schedules.find { it.name.contains("1. Ders") }
+                    val assembly = schedules.find { it.name.contains("Töreni") }
+                    
+                    val lessonDur = lessons.firstOrNull()?.let { it.endTime - it.startTime } ?: 40
+                    val startTime = firstLesson?.startTime ?: 480
+                    val assemblyDur = assembly?.let { it.endTime - it.startTime } ?: 0
+                    
+                    // Try to find a normal break (not lunch)
+                    val normalBreak = schedules.find { it.isBreak && (it.endTime - it.startTime) < 30 && !it.name.contains("Hazırlık") }
+                    val breakDur = normalBreak?.let { it.endTime - it.startTime } ?: 10
+                    
+                    val preBell = schedules.find { it.name.contains("Hazırlık") }
+                    val preBellDur = preBell?.let { it.endTime - it.startTime } ?: 0
+
+                    // Lunch break
+                    val lunchBreak = schedules.find { it.isBreak && (it.endTime - it.startTime) >= 30 }
+                    val lunchAfter = if (lunchBreak != null) {
+                        schedules.filter { !it.isBreak && it.endTime <= lunchBreak.startTime }.size
+                    } else null
+                    val lunchDur = lunchBreak?.let { it.endTime - it.startTime } ?: 40
+
+                    _uiState.value = _uiState.value.copy(
+                        profileName = profile.name,
+                        lessonCount = lessons.size.toString(),
+                        lessonDuration = lessonDur.toString(),
+                        breakDuration = breakDur.toString(),
+                        startTime = String.format("%02d:%02d", startTime / 60, startTime % 60),
+                        lunchBreakAfter = (lunchAfter ?: 5).toString(),
+                        lunchBreakDuration = lunchDur.toString(),
+                        morningAssemblyDuration = assemblyDur.toString(),
+                        preBellDuration = preBellDur.toString(),
+                        countdownColorEnabled = com.zilagent.app.widget.WidgetStore.isDynamicColorEnabled(getApplication())
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        profileName = profile.name,
+                        countdownColorEnabled = com.zilagent.app.widget.WidgetStore.isDynamicColorEnabled(getApplication())
+                    )
+                }
+            }
+        }
+    }
+
+    fun onDayToggle(day: Int) {
+        // Day 0 = "Tümü" toggle
+        if (day == 0) {
+            val current = _uiState.value.selectedDays
+            if (current.containsAll((1..7).toList())) {
+                _uiState.value = _uiState.value.copy(selectedDays = emptySet())
+            } else {
+                _uiState.value = _uiState.value.copy(selectedDays = (1..7).toSet())
+            }
+        } else {
+            val current = _uiState.value.selectedDays.toMutableSet()
+            if (current.contains(day)) {
+                current.remove(day)
+            } else {
+                current.add(day)
+            }
+            _uiState.value = _uiState.value.copy(selectedDays = current)
+        }
+    }
     fun onProfileNameChange(value: String) { _uiState.value = _uiState.value.copy(profileName = value) }
     fun onLessonCountChange(value: String) { _uiState.value = _uiState.value.copy(lessonCount = value) }
     fun onLessonDurationChange(value: String) { _uiState.value = _uiState.value.copy(lessonDuration = value) }
@@ -52,6 +134,7 @@ class CreateScheduleViewModel(
     fun onLunchBreakAfterChange(value: String) { _uiState.value = _uiState.value.copy(lunchBreakAfter = value) }
     fun onLunchBreakDurationChange(value: String) { _uiState.value = _uiState.value.copy(lunchBreakDuration = value) }
     fun onMorningAssemblyDurationChange(value: String) { _uiState.value = _uiState.value.copy(morningAssemblyDuration = value) }
+    fun onPreBellDurationChange(value: String) { _uiState.value = _uiState.value.copy(preBellDuration = value) }
     fun onCountdownColorEnabledChange(value: Boolean) { _uiState.value = _uiState.value.copy(countdownColorEnabled = value) }
     
     // Custom Mode Updates
@@ -73,31 +156,59 @@ class CreateScheduleViewModel(
                 val lunchDuration = _uiState.value.lunchBreakDuration.toIntOrNull() ?: 45
                 val assemblyDuration = _uiState.value.morningAssemblyDuration.toIntOrNull() ?: 0
 
-                // 1. Create Profile
-                val profile = Profile(name = _uiState.value.profileName, isActive = true)
+                // 1. Create or Update Profile
+                val profileId = if (_uiState.value.editProfileId != -1L) {
+                    val existing = bellDao.getAllProfiles().first().find { it.id == _uiState.value.editProfileId }
+                    if (existing != null) {
+                        val updated = existing.copy(name = _uiState.value.profileName)
+                        bellDao.updateProfile(updated)
+                        existing.id
+                    } else {
+                        val profile = Profile(name = _uiState.value.profileName, isActive = true)
+                        bellDao.insertProfile(profile)
+                    }
+                } else {
+                    val profile = Profile(name = _uiState.value.profileName, isActive = true)
+                    bellDao.insertProfile(profile)
+                }
                 
-                // Set as active (logic inside Dao will clear others)
-                val profileId = bellDao.insertProfile(profile)
+                // Set as active
                 bellDao.setActiveProfile(profileId)
 
-                // 2. Generate Schedule
-                val schedules = ScheduleGenerator.generateSchedule(
-                    profileId = profileId,
-                    firstLessonStart = start,
-                    lessonDurationMinutes = lessonDuration,
-                    breakDurationMinutes = breakDuration,
-                    lessonCount = lessonCount,
-                    lunchBreakAfterLesson = lunchAfter,
-                    lunchBreakDurationMinutes = lunchDuration,
-                    morningAssemblyDuration = assemblyDuration
-                )
-
-                // 3. Save Schedule
-                bellDao.deleteSchedulesForProfile(profileId) // Cleanup if any
-                bellDao.insertSchedules(schedules)
+                // 2. Generate and Save Schedule
+                // Only generate for selected days
+                val daysToGenerate = _uiState.value.selectedDays
                 
-                // 4. Schedule Alarms
-                bellManager.scheduleDailyAlarms(schedules)
+                val allGeneratedSchedules = mutableListOf<com.zilagent.app.data.entity.BellSchedule>()
+                
+                // First delete existing schedules for this profile to ensure clean state based on new selection
+                // Actually, logic below deletes per day, but if we deselect a day, we must delete it.
+                // Safest approach: Delete ALL for profile, then insert selected.
+                bellDao.deleteSchedulesForProfile(profileId)
+
+                daysToGenerate.forEach { day ->
+                    val daySchedules = ScheduleGenerator.generateSchedule(
+                        profileId = profileId,
+                        dayOfWeek = day,
+                        firstLessonStart = start, // Note: ScheduleGenerator now puts Ceremony BEFORE this time
+                        lessonDurationMinutes = lessonDuration,
+                        breakDurationMinutes = breakDuration,
+                        lessonCount = lessonCount,
+                        lunchBreakAfterLesson = lunchAfter,
+                        lunchBreakDurationMinutes = lunchDuration,
+                        morningAssemblyDuration = assemblyDuration,
+                        preBellMinutes = _uiState.value.preBellDuration.toIntOrNull() ?: 0
+                    )
+                    allGeneratedSchedules.addAll(daySchedules)
+                }
+
+                // 3. Save All
+                bellDao.insertSchedules(allGeneratedSchedules)
+                
+                // 4. Schedule Alarms for TODAY if today was updated or if we updated all days
+                val today = java.time.LocalDate.now().dayOfWeek.value
+                val todaySchedule = bellDao.getSchedulesForProfileSync(profileId, today)
+                bellManager.scheduleDailyAlarms(todaySchedule)
                 
                 // Save Widget Preference
                 com.zilagent.app.widget.WidgetStore.setDynamicColorEnabled(getApplication(), _uiState.value.countdownColorEnabled)
@@ -135,6 +246,14 @@ class CreateScheduleViewModel(
     }
 
     companion object {
+        fun provideFactory(application: ZilAgentApp, profileId: Long): ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                val db = AppDatabase.getDatabase(application)
+                val bellManager = com.zilagent.app.manager.BellManager(application)
+                CreateScheduleViewModel(application, db.bellDao(), bellManager, profileId)
+            }
+        }
+
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val application = (this[APPLICATION_KEY] as ZilAgentApp)

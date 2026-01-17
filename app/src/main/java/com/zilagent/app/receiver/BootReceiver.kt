@@ -19,7 +19,8 @@ class BootReceiver : BroadcastReceiver() {
                 try {
                     val profile = db.bellDao().getActiveProfileSync()
                     if (profile != null) {
-                        val schedules = db.bellDao().getSchedulesForProfileSync(profile.id)
+                        val today = java.time.LocalDate.now().dayOfWeek.value
+                        val schedules = db.bellDao().getSchedulesForProfileSync(profile.id, today)
                         bellManager.scheduleDailyAlarms(schedules)
                     }
                 } catch (e: Exception) {

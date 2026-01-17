@@ -11,38 +11,56 @@ object ScheduleGenerator {
      */
     fun generateSchedule(
         profileId: Long,
+        dayOfWeek: Int = 0, // 0 means daily/all days
         firstLessonStart: String, // "08:10"
         lessonDurationMinutes: Int,
         breakDurationMinutes: Int,
         lessonCount: Int,
         lunchBreakAfterLesson: Int? = null, // e.g., after 4th lesson
         lunchBreakDurationMinutes: Int = 0,
-        morningAssemblyDuration: Int = 0 // If > 0, adds an assembly before 1st lesson
+        morningAssemblyDuration: Int = 0, // If > 0, adds an assembly before 1st lesson
+        preBellMinutes: Int = 0 // If > 0, adds a warning bell before each lesson
     ): List<BellSchedule> {
         val schedule = mutableListOf<BellSchedule>()
         
-        // Parse start time to minutes
+        // Parse start time to minutes - this is strictly the 1. Lesson Start
         val (startHour, startMin) = firstLessonStart.split(":").map { it.toInt() }
         var currentMinutes = startHour * 60 + startMin
 
         var order = 0
 
-        // Optional Assembly
+        // Optional Assembly (Shift backwards)
         if (morningAssemblyDuration > 0) {
             schedule.add(
                 BellSchedule(
                     profileId = profileId,
+                    dayOfWeek = dayOfWeek,
                     name = "Sabah Töreni",
-                    startTime = currentMinutes,
-                    endTime = currentMinutes + morningAssemblyDuration,
-                    isBreak = false, // It's an activity, not a break technically, or maybe it is? Let's say false.
+                    startTime = currentMinutes - morningAssemblyDuration,
+                    endTime = currentMinutes,
+                    isBreak = false,
                     orderIndex = order++
                 )
             )
-            currentMinutes += morningAssemblyDuration
+            // No need to increment currentMinutes, as it IS the start of Lesson 1
         }
 
         for (i in 1..lessonCount) {
+            // Pre-bell (Warning)
+            if (preBellMinutes > 0) {
+                schedule.add(
+                    BellSchedule(
+                        profileId = profileId,
+                        dayOfWeek = dayOfWeek,
+                        name = "$i. Ders Hazırlık",
+                        startTime = currentMinutes - preBellMinutes,
+                        endTime = currentMinutes,
+                        isBreak = true,
+                        orderIndex = order++
+                    )
+                )
+            }
+
             // Lesson
             val lessonStart = currentMinutes
             val lessonEnd = currentMinutes + lessonDurationMinutes
@@ -50,6 +68,7 @@ object ScheduleGenerator {
             schedule.add(
                 BellSchedule(
                     profileId = profileId,
+                    dayOfWeek = dayOfWeek,
                     name = "$i. Ders",
                     startTime = lessonStart,
                     endTime = lessonEnd,
@@ -64,12 +83,12 @@ object ScheduleGenerator {
                 var currentBreakDuration = breakDurationMinutes
                 var breakName = "$i. Teneffüs"
 
-                // Variable Break Logic: Break 1 & 2 are 10 minutes
+                // Variable Break Logic
                 if (i == 1 || i == 2) {
                     currentBreakDuration = 10
                 }
 
-                // Check for Lunch Break (Overrides variable break if it coincides, though unlikely at 1 or 2)
+                // Check for Lunch Break
                 if (lunchBreakAfterLesson != null && i == lunchBreakAfterLesson) {
                     currentBreakDuration = lunchBreakDurationMinutes
                     breakName = "Öğle Arası"
@@ -81,11 +100,12 @@ object ScheduleGenerator {
                 schedule.add(
                     BellSchedule(
                         profileId = profileId,
+                        dayOfWeek = dayOfWeek,
                         name = breakName,
                         startTime = breakStart,
                         endTime = breakEnd,
                         isBreak = true,
-                        orderIndex = order ++
+                        orderIndex = order++
                     )
                 )
                 currentMinutes = breakEnd

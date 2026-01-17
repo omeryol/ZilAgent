@@ -11,12 +11,30 @@ import com.zilagent.app.data.entity.Profile
 import com.zilagent.app.data.entity.Holiday
 import com.zilagent.app.data.entity.Quote
 import com.zilagent.app.data.dao.QuoteDao
+import com.zilagent.app.data.dao.SyllabusDao
+import com.zilagent.app.data.dao.LessonNoteDao
+import com.zilagent.app.data.entity.*
 
-@Database(entities = [Profile::class, BellSchedule::class, Holiday::class, Quote::class], version = 6, exportSchema = false)
+@Database(
+    entities = [
+        Profile::class, 
+        BellSchedule::class, 
+        Holiday::class, 
+        Quote::class, 
+        SchoolClass::class, 
+        SchoolSubject::class, 
+        SyllabusEntry::class,
+        LessonNote::class
+    ], 
+    version = 10, 
+    exportSchema = false
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun bellDao(): BellDao
     abstract fun holidayDao(): HolidayDao
     abstract fun quoteDao(): QuoteDao
+    abstract fun syllabusDao(): SyllabusDao
+    abstract fun lessonNoteDao(): LessonNoteDao
 
     companion object {
         @Volatile

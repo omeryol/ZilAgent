@@ -1,6 +1,7 @@
 package com.zilagent.app.ui.settings
 
 import android.app.Application
+import android.graphics.Bitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
@@ -8,6 +9,9 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.zilagent.app.widget.WidgetStore
+import com.zilagent.app.data.model.TransferData
+import com.zilagent.app.util.QrUtils
+import com.zilagent.app.data.entity.Profile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,7 +54,9 @@ data class SettingsUiState(
 class SettingsViewModel(
     application: Application,
     private val holidayDao: com.zilagent.app.data.dao.HolidayDao,
-    private val quoteDao: com.zilagent.app.data.dao.QuoteDao
+    private val quoteDao: com.zilagent.app.data.dao.QuoteDao,
+    private val bellDao: com.zilagent.app.data.dao.BellDao,
+    private val syllabusDao: com.zilagent.app.data.dao.SyllabusDao
 ) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -187,11 +193,8 @@ class SettingsViewModel(
 
     private fun triggerWidgetUpdate() {
         val context = getApplication<Application>()
-        com.zilagent.app.widget.CountdownWidget.updateAllWidgets(context)
-        com.zilagent.app.widget.HorizontalCountdownWidget.updateAll(context)
-        com.zilagent.app.widget.ModernCountdownWidget.updateAll(context)
         com.zilagent.app.widget.PanoramicCountdownWidget.updateAll(context)
-        com.zilagent.app.widget.CircleCountdownWidget.updateAll(context)
+        com.zilagent.app.widget.SyllabusWidget.updateAll(context)
     }
 
     // Custom Mode logic...
@@ -287,25 +290,65 @@ class SettingsViewModel(
     fun onWidgetFlowDirectionChange(direction: Int) {
         WidgetStore.setWidgetFlowDirection(getApplication(), direction)
         _uiState.value = _uiState.value.copy(widgetFlowDirection = direction)
+        triggerWidgetUpdate()
     }
 
     fun onWidgetAlignmentChange(alignment: Int) {
         WidgetStore.setWidgetAlignment(getApplication(), alignment)
         _uiState.value = _uiState.value.copy(widgetAlignment = alignment)
+        triggerWidgetUpdate()
     }
 
     fun onWidgetSpacingChange(spacing: Int) {
         WidgetStore.setWidgetSpacing(getApplication(), spacing)
         _uiState.value = _uiState.value.copy(widgetSpacing = spacing)
+        triggerWidgetUpdate()
     }
 
     fun onWidgetElementOrderChange(order: Int) {
         WidgetStore.setWidgetElementOrder(getApplication(), order)
         _uiState.value = _uiState.value.copy(widgetElementOrder = order)
+        triggerWidgetUpdate()
+    }
+
+    fun createBackup(context: android.content.Context, uri: android.net.Uri) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            com.zilagent.app.util.BackupManager.createBackup(context, uri)
+        }
+    }
+
+    fun restoreBackup(context: android.content.Context, uri: android.net.Uri) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val success = com.zilagent.app.util.BackupManager.restoreBackup(context, uri)
+            if (success) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    loadSettings()
+                    triggerWidgetUpdate()
+                }
+            }
+        }
+    }
+
+    fun exportBackup(onComplete: (String) -> Unit) {
+        viewModelScope.launch {
+            val json = com.zilagent.app.util.BackupManager.createBackup(getApplication())
+            onComplete(json)
+        }
+    }
+
+    fun importBackup(json: String, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val success = com.zilagent.app.util.BackupManager.restoreBackup(getApplication(), json)
+            if (success) {
+                loadSettings()
+                triggerWidgetUpdate()
+            }
+            onComplete(success)
+        }
     }
 
     fun resetAllData() {
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val context = getApplication<Application>()
             // Clear SharedPreferences
             context.getSharedPreferences(WidgetStore.PREFS_NAME, android.content.Context.MODE_PRIVATE).edit().clear().apply()
@@ -314,9 +357,57 @@ class SettingsViewModel(
             val db = com.zilagent.app.data.AppDatabase.getDatabase(context)
             db.clearAllTables()
             
-            // Reload
-            loadSettings()
-            triggerWidgetUpdate()
+            // Reload on UI thread
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                loadSettings()
+                triggerWidgetUpdate()
+            }
+        }
+    }
+
+    fun exportProfileToQr(onResult: (Bitmap?) -> Unit) {
+        viewModelScope.launch {
+            val profile = bellDao.getActiveProfileSync()
+            if (profile != null) {
+                val schedules = bellDao.getAllSchedulesForProfileSync(profile.id)
+                val syllabus = syllabusDao.getAllSyllabusSync(profile.id)
+                // Assuming Profile entity has 'name' field
+                val data = TransferData(profile.name, schedules, syllabus)
+                // Serialize in IO
+                val bitmap = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    val compressed = QrUtils.compressAndSerialize(data)
+                    QrUtils.generateQrBitmap(compressed)
+                }
+                onResult(bitmap)
+            } else {
+                onResult(null)
+            }
+        }
+    }
+
+    fun importProfileFromQr(scannedData: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val success = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val data = QrUtils.decompressAndDeserialize(scannedData, TransferData::class.java)
+                if (data != null) {
+                    // Create new profile
+                    val newId = bellDao.insertProfile(Profile(name = "${data.profileName} (İçe Aktarılan)"))
+                    
+                    // Process schedules
+                    data.bellSchedules.forEach { 
+                        bellDao.insertSchedule(it.copy(id = 0, profileId = newId)) 
+                    }
+                    
+                    // Process syllabus
+                    data.syllabusEntries.forEach { 
+                        syllabusDao.insertSyllabusEntry(it.copy(profileId = newId)) 
+                    }
+                    true
+                } else {
+                    false
+                }
+            }
+            onResult(success)
         }
     }
 
@@ -325,7 +416,7 @@ class SettingsViewModel(
             initializer {
                 val application = this[APPLICATION_KEY] as Application
                 val db = com.zilagent.app.data.AppDatabase.getDatabase(application)
-                SettingsViewModel(application, db.holidayDao(), db.quoteDao())
+                SettingsViewModel(application, db.holidayDao(), db.quoteDao(), db.bellDao(), db.syllabusDao())
             }
         }
     }

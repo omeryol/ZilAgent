@@ -17,6 +17,9 @@ interface BellDao {
     @Query("SELECT * FROM profiles")
     fun getAllProfiles(): Flow<List<Profile>>
 
+    @Query("SELECT * FROM profiles")
+    suspend fun getAllProfilesSync(): List<Profile>
+
     @Query("SELECT * FROM profiles WHERE isActive = 1 LIMIT 1")
     fun getActiveProfile(): Flow<Profile?>
 
@@ -47,11 +50,14 @@ interface BellDao {
 
 
     // --- Schedule Operations ---
-    @Query("SELECT * FROM bell_schedules WHERE profileId = :profileId ORDER BY orderIndex ASC")
-    fun getSchedulesForProfile(profileId: Long): Flow<List<BellSchedule>>
+    @Query("SELECT * FROM bell_schedules WHERE profileId = :profileId AND (dayOfWeek = :dayOfWeek OR dayOfWeek = 0) ORDER BY orderIndex ASC")
+    fun getSchedulesForProfile(profileId: Long, dayOfWeek: Int): Flow<List<BellSchedule>>
+
+    @Query("SELECT * FROM bell_schedules WHERE profileId = :profileId AND (dayOfWeek = :dayOfWeek OR dayOfWeek = 0) ORDER BY orderIndex ASC")
+    suspend fun getSchedulesForProfileSync(profileId: Long, dayOfWeek: Int): List<BellSchedule>
 
     @Query("SELECT * FROM bell_schedules WHERE profileId = :profileId ORDER BY orderIndex ASC")
-    suspend fun getSchedulesForProfileSync(profileId: Long): List<BellSchedule>
+    suspend fun getAllSchedulesForProfileSync(profileId: Long): List<BellSchedule>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSchedule(schedule: BellSchedule)
@@ -64,4 +70,7 @@ interface BellDao {
 
     @Query("DELETE FROM bell_schedules WHERE profileId = :profileId")
     suspend fun deleteSchedulesForProfile(profileId: Long)
+
+    @Query("DELETE FROM bell_schedules WHERE profileId = :profileId AND dayOfWeek = :dayOfWeek")
+    suspend fun deleteSchedulesForDay(profileId: Long, dayOfWeek: Int)
 }

@@ -49,26 +49,57 @@ class DashboardViewModel(
 
     private fun checkAndCreateDefaultProfile() {
         viewModelScope.launch {
-            val profile = bellDao.getActiveProfileSync()
-            if (profile == null) {
-                // Create default profile if none exists
-                val defaultProfile = Profile(name = "Varsayılan", isActive = true)
+            val profiles = bellDao.getAllProfilesSync()
+            var defaultProfile = profiles.find { it.name == "Varsayılan" }
+
+            if (defaultProfile == null && profiles.isEmpty()) {
+                // Create default profile ONLY if no profiles exist
+                defaultProfile = Profile(name = "Varsayılan", isActive = true)
                 val profileId = bellDao.insertProfile(defaultProfile)
                 
                 // Generate default schedule
-                val schedules = com.zilagent.app.domain.ScheduleGenerator.generateSchedule(
-                    profileId = profileId,
-                    firstLessonStart = "08:00",
-                    lessonDurationMinutes = 40,
-                    breakDurationMinutes = 10,
-                    lessonCount = 8,
-                    lunchBreakAfterLesson = 4,
-                    lunchBreakDurationMinutes = 40,
-                    morningAssemblyDuration = 10
-                )
-                bellDao.insertSchedules(schedules)
+                generateDefaultScheduleForProfile(profileId)
+            } else if (defaultProfile != null) {
+                // If default exists, check if it has schedules AND if they are legacy (day=0)
+                val schedules = bellDao.getAllSchedulesForProfileSync(defaultProfile.id)
+                val hasGlobalSchedule = schedules.any { it.dayOfWeek == 0 }
+                
+                if (schedules.isEmpty() || hasGlobalSchedule) {
+                    // Regenerate to fix "Weekend showing as workday" issue
+                    generateDefaultScheduleForProfile(defaultProfile.id)
+                }
+                
+                // Ensure active profile
+                if (profiles.none { it.isActive }) {
+                    bellDao.setActiveProfile(defaultProfile.id)
+                }
             }
         }
+    }
+
+    private suspend fun generateDefaultScheduleForProfile(profileId: Long) {
+        // Clear potential garbage before inserting
+        bellDao.deleteSchedulesForProfile(profileId)
+        
+        val allSchedules = mutableListOf<BellSchedule>()
+        
+        // Generate separate schedules for Monday(1) to Friday(5)
+        for (day in 1..5) {
+            val daySchedules = com.zilagent.app.domain.ScheduleGenerator.generateSchedule(
+                profileId = profileId,
+                dayOfWeek = day,
+                firstLessonStart = "08:00",
+                lessonDurationMinutes = 40,
+                breakDurationMinutes = 10,
+                lessonCount = 8,
+                lunchBreakAfterLesson = 4,
+                lunchBreakDurationMinutes = 40,
+                morningAssemblyDuration = 10
+            )
+            allSchedules.addAll(daySchedules)
+        }
+        
+        bellDao.insertSchedules(allSchedules)
     }
 
     private fun loadData() {
@@ -78,7 +109,8 @@ class DashboardViewModel(
                 .flatMapLatest { profile ->
                     if (profile != null) {
                         _uiState.value = _uiState.value.copy(currentProfile = profile)
-                        bellDao.getSchedulesForProfile(profile.id)
+                        val today = java.time.LocalDate.now().dayOfWeek.value
+                        bellDao.getSchedulesForProfile(profile.id, today)
                     } else {
                         _uiState.value = _uiState.value.copy(
                             currentProfile = null,
@@ -122,8 +154,10 @@ class DashboardViewModel(
             // Update DB
             bellDao.insertSchedules(updatedSchedules)
             
-            // Reschedule Alarms
-            bellManager.scheduleDailyAlarms(updatedSchedules)
+            // Reschedule Alarms for TODAY
+            val today = java.time.LocalDate.now().dayOfWeek.value
+            val todaySchedule = bellDao.getSchedulesForProfileSync(item.profileId, today)
+            bellManager.scheduleDailyAlarms(todaySchedule)
             
             // Optimistic UI update
             _uiState.value = _uiState.value.copy(schedule = updatedSchedules)

@@ -48,7 +48,8 @@ class ProfilesViewModel(
             bellDao.setActiveProfile(profile.id)
             
             // Refresh Alarms for the new profile
-            val schedules = bellDao.getSchedulesForProfileSync(profile.id)
+            val today = java.time.LocalDate.now().dayOfWeek.value
+            val schedules = bellDao.getSchedulesForProfileSync(profile.id, today)
             bellManager.scheduleDailyAlarms(schedules)
             
             // BellManager.scheduleDailyAlarms already calls refreshWidgetState()

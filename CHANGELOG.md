@@ -1,31 +1,40 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this project will be documented in this file.
 
-## [v2.0.0] - 2026-01-17
+## [v2.2.0] - 2026-03-07
 
-### Added (Yeni Özellikler)
-- **Offline Profile Sharing (QR):** Added ability to share and import profiles via QR code without internet connection.
-- **Lesson Notes:** Users can now add notes to specific lessons by long-pressing them in the Syllabus tab.
-- **Day Selection for Profiles:** Added day selection (Mon-Sun) support when creating/editing profiles. Weekends can now be active school days if selected.
-- **F-Droid Compliance:** 
-    - Verified full open-source compliance.
-    - Added SHA-256 checksum to Gradle Wrapper for security.
-    - Ensured Fastlane metadata (en-US) is complete.
-- **Reactivity:** Implemented Flow-based architecture in `SyllabusViewModel` and `DashboardViewModel` for instant UI updates when settings change (no restart required).
+### Added
+- F-Droid metadata template added: `metadata/com.zilagent.app.yml`.
+- Security hardening notes and submission guidance added: `FDROID_SUBMISSION.md`.
 
-### Fixed (Düzeltmeler)
-- **Default Profile Logic:** Fixed issues where default profiles were duplicated or had incorrect time settings (Morning Assembly duration fix).
-- **Widget Logic:** 
-    - Fixed "Weekend" and "Empty Day" display logic. 
-    - Widgets now correctly show "Holiday" or "Empty" labels instead of blank or incorrect schedule headers.
-    - Improved next-day transition logic for widgets.
-- **App Restart Issue:** Resolved the bug requiring app restart for settings to apply.
+### Changed
+- Version bumped to `2.2.0` (`versionCode 3`).
+- README expanded with product overview, build instructions, and F-Droid readiness details.
+- Fastlane store metadata (TR/EN) refreshed and corrected.
 
-### Changed (Değişiklikler)
-- **About Section:** Updated source code repository links to `https://github.com/omeryol/ZilAgent`.
-- **Permissions:** Confirmed removal of `INTERNET` permission for strict privacy.
+### Security
+- Android auto-backup disabled (`allowBackup=false`).
+- Backup restore flow redesigned with validation and atomic transaction behavior.
+- QR import/export payload limits and schema validation added.
 
-### Technical
-- **Room Database:** Added `LessonNote` entity and DAOs.
-- **Build System:** Cleaned up build logs and verified Gradle 8.13 compatibility.
+### Repository Cleanup
+- Removed obsolete root-level screenshots and temporary dump files.
+- Removed tracked release binary artifacts from source tree (`app/release/*`).
+- `.gitignore` strengthened to prevent local/temporary files from re-entering the repository.
+
+## [v2.1.0] - 2026-01-17
+
+### Added
+- Offline QR profile sharing and import.
+- Lesson notes support.
+- Day-based profile schedule selection.
+
+### Fixed
+- Default profile creation and timing logic.
+- Weekend/empty-day widget status behavior.
+- Settings reactivity and restart-related issues.
+
+### Changed
+- Source code links updated to `https://github.com/omeryol/ZilAgent`.
+- Confirmed offline-first behavior with no internet permission.

@@ -19,3 +19,4 @@ local.properties
 Screenshot_*.jpg
 _latest_phone.png
 _local_dump.txt
+app/release/

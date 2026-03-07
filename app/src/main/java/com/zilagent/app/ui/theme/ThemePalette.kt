@@ -1,48 +1,83 @@
-package com.zilagent.app.ui.theme
+﻿package com.zilagent.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
 object ThemePalette {
-    fun getPalette(name: String): Pair<Color, Color> {
-        return when (name) {
-            // Doğa
-            "Okyanus" -> Pair(Color(0xFF4FACFE), Color(0xFF00F2FE))
-            "Orman" -> Pair(Color(0xFF43E97B), Color(0xFF38F9D7))
-            "Gün Batımı" -> Pair(Color(0xFFFA709A), Color(0xFFFEE140))
-            "Çöl" -> Pair(Color(0xFFF7971E), Color(0xFFFFD200))
-            "Kutup" -> Pair(Color(0xFFE0C3FC), Color(0xFF8EC5FC))
-            
-            // Modern & Neon
-            "Cyberpunk" -> Pair(Color(0xFFFF00CC), Color(0xFF333399))
-            "Gece Yarısı" -> Pair(Color(0xFF0F2027), Color(0xFF2C5364))
-            "Neon Asit" -> Pair(Color(0xFFD4FC79), Color(0xFF96E6A1))
-            "Derin Uzay" -> Pair(Color(0xFF000428), Color(0xFF004E92))
-            "Zehir" -> Pair(Color(0xFFcc2b5e), Color(0xFF753a88))
-            
-            // Pastel & Yumuşak
-            "Şeker" -> Pair(Color(0xFFFF9A9E), Color(0xFFFECFEF))
-            "Nane" -> Pair(Color(0xFF84FAB0), Color(0xFF8FD3F4))
-            "Lavanta" -> Pair(Color(0xFFE0C3FC), Color(0xFF8EC5FC))
-            "Şeftali" -> Pair(Color(0xFFF6D365), Color(0xFFFDA085))
-            "Bulut" -> Pair(Color(0xFFcfd9df), Color(0xFFe2ebf0))
-            
-            // Klasik & Canlı
-            "Ateş" -> Pair(Color(0xFFF093FB), Color(0xFFF5576C))
-            "Güneş" -> Pair(Color(0xFFF6D365), Color(0xFFFDA085)) // Keep legacy mapping just in case
-            "Kiraz" -> Pair(Color(0xFFEB3349), Color(0xFFF45C43))
-            "Elektrik" -> Pair(Color(0xFF4776E6), Color(0xFF8E54E9))
-            "Asil" -> Pair(Color(0xFF141E30), Color(0xFF243B55))
+    private val aliases = mapOf(
+        // Turkish -> canonical
+        "Okyanus" to "Ocean",
+        "Orman" to "Forest",
+        "Gün Batımı" to "Sunset",
+        "Çöl" to "Desert",
+        "Kutup" to "Polar",
+        "Gece Yarısı" to "Midnight",
+        "Şeker" to "Candy",
+        "Nane" to "Mint",
+        "Lavanta" to "Lavender",
+        "Şeftali" to "Peach",
+        "Bulut" to "Cloud",
+        "Ateş" to "Fire",
+        "Güneş" to "Sun",
+        "Kiraz" to "Cherry",
+        "Elektrik" to "Electric",
+        "Asil" to "Royal",
+        // keep canonical stable
+        "Ocean" to "Ocean",
+        "Forest" to "Forest",
+        "Sunset" to "Sunset",
+        "Desert" to "Desert",
+        "Polar" to "Polar",
+        "Cyberpunk" to "Cyberpunk",
+        "Midnight" to "Midnight",
+        "Neon Acid" to "Neon Acid",
+        "Deep Space" to "Deep Space",
+        "Venom" to "Venom",
+        "Candy" to "Candy",
+        "Mint" to "Mint",
+        "Lavender" to "Lavender",
+        "Peach" to "Peach",
+        "Cloud" to "Cloud",
+        "Fire" to "Fire",
+        "Sun" to "Sun",
+        "Cherry" to "Cherry",
+        "Electric" to "Electric",
+        "Royal" to "Royal",
+    )
 
-            else -> Pair(Color(0xFF4FACFE), Color(0xFF00F2FE)) // Default Okyanus
+    private fun key(name: String): String = aliases[name] ?: "Ocean"
+
+    fun getPalette(name: String): Pair<Color, Color> {
+        return when (key(name)) {
+            "Ocean" -> Pair(Color(0xFF4FACFE), Color(0xFF00F2FE))
+            "Forest" -> Pair(Color(0xFF43E97B), Color(0xFF38F9D7))
+            "Sunset" -> Pair(Color(0xFFFA709A), Color(0xFFFEE140))
+            "Desert" -> Pair(Color(0xFFF7971E), Color(0xFFFFD200))
+            "Polar" -> Pair(Color(0xFFE0C3FC), Color(0xFF8EC5FC))
+            "Cyberpunk" -> Pair(Color(0xFFFF00CC), Color(0xFF333399))
+            "Midnight" -> Pair(Color(0xFF0F2027), Color(0xFF2C5364))
+            "Neon Acid" -> Pair(Color(0xFFD4FC79), Color(0xFF96E6A1))
+            "Deep Space" -> Pair(Color(0xFF000428), Color(0xFF004E92))
+            "Venom" -> Pair(Color(0xFFCC2B5E), Color(0xFF753A88))
+            "Candy" -> Pair(Color(0xFFFF9A9E), Color(0xFFFECFEF))
+            "Mint" -> Pair(Color(0xFF84FAB0), Color(0xFF8FD3F4))
+            "Lavender" -> Pair(Color(0xFFE0C3FC), Color(0xFF8EC5FC))
+            "Peach" -> Pair(Color(0xFFF6D365), Color(0xFFFDA085))
+            "Cloud" -> Pair(Color(0xFFCFD9DF), Color(0xFFE2EBF0))
+            "Fire" -> Pair(Color(0xFFF093FB), Color(0xFFF5576C))
+            "Sun" -> Pair(Color(0xFFF6D365), Color(0xFFFDA085))
+            "Cherry" -> Pair(Color(0xFFEB3349), Color(0xFFF45C43))
+            "Electric" -> Pair(Color(0xFF4776E6), Color(0xFF8E54E9))
+            "Royal" -> Pair(Color(0xFF141E30), Color(0xFF243B55))
+            else -> Pair(Color(0xFF4FACFE), Color(0xFF00F2FE))
         }
     }
 
     fun getAllThemeNames(): List<String> {
         return listOf(
-            "Okyanus", "Orman", "Gün Batımı", "Çöl", "Kutup",
-            "Cyberpunk", "Gece Yarısı", "Neon Asit", "Derin Uzay", "Zehir",
-            "Şeker", "Nane", "Lavanta", "Şeftali", "Bulut",
-            "Kiraz", "Elektrik", "Asil"
+            "Ocean", "Forest", "Sunset", "Desert", "Polar",
+            "Cyberpunk", "Midnight", "Neon Acid", "Deep Space", "Venom",
+            "Candy", "Mint", "Lavender", "Peach", "Cloud",
+            "Fire", "Sun", "Cherry", "Electric", "Royal",
         )
     }
 }

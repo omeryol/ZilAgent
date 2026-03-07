@@ -5,6 +5,8 @@ import android.app.Application
 import com.zilagent.app.data.AppDatabase
 import com.zilagent.app.data.entity.Quote
 import com.zilagent.app.util.QuoteConstants
+import com.zilagent.app.util.SubjectConstants
+import com.zilagent.app.widget.WidgetStore
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
@@ -15,19 +17,16 @@ class ZilAgentApp : Application() {
         GlobalScope.launch {
             val db = AppDatabase.getDatabase(this@ZilAgentApp)
             val dao = db.quoteDao()
-            val currentSystemCount = dao.getSystemQuotesCountSync()
-            
-            // If the count in DB differs from the one in Code (QuoteConstants), update it.
-            if (currentSystemCount != QuoteConstants.HOLIDAY_QUOTES.size) {
-                dao.deleteAllSystemQuotes()
-                val systemQuotes = QuoteConstants.HOLIDAY_QUOTES.map { Quote(content = it, isSystem = true) }
-                dao.insertQuotes(systemQuotes)
-            }
+            val language = WidgetStore.getAppLanguage(this@ZilAgentApp)
+            dao.deleteAllSystemQuotes()
+            val systemQuotes = QuoteConstants.systemQuotes(language).map { Quote(content = it, isSystem = true) }
+            dao.insertQuotes(systemQuotes)
 
             // Sync System Subjects
             val syllabusDao = db.syllabusDao()
             if (syllabusDao.getSystemSubjectCount() == 0) {
-                com.zilagent.app.util.SubjectConstants.MIDDLE_SCHOOL_SUBJECTS.forEach {
+                val defaults = if (language == "en") SubjectConstants.MIDDLE_SCHOOL_SUBJECTS_EN else SubjectConstants.MIDDLE_SCHOOL_SUBJECTS_TR
+                defaults.forEach {
                     syllabusDao.insertSubject(com.zilagent.app.data.entity.SchoolSubject(name = it, isSystem = true))
                 }
             }

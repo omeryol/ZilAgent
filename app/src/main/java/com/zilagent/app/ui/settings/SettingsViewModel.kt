@@ -1,4 +1,4 @@
-package com.zilagent.app.ui.settings
+﻿package com.zilagent.app.ui.settings
 
 import android.app.Application
 import android.graphics.Bitmap
@@ -23,7 +23,7 @@ data class SettingsUiState(
     val customModeEnabled: Boolean = false,
     val customModeTitle: String = "",
     val customModeTime: String = "",
-    val profileName: String = "Yükleniyor...",
+    val profileName: String = "Loading...",
     // Widget Customization
     val widgetTextSize: Int = 28,
     val widgetLabelSize: Int = 14,
@@ -48,6 +48,24 @@ data class SettingsUiState(
     val widgetAlignment: Int = 1,     // 0: Left, 1: Center, 2: Right
     val widgetSpacing: Int = 8,
     val widgetElementOrder: Int = 0, // 0: Time First, 1: Label First
+    val panoramicTimeTextSize: Int = 30,
+    val panoramicTitleTextSize: Int = 15,
+    val syllabusFlowTextSize: Int = 15,
+    val syllabusStatusTextSize: Int = 15,
+    val syllabusShowIcons: Boolean = true,
+    val syllabusShowClassColors: Boolean = true,
+    val syllabusShowBreaks: Boolean = true,
+    val syllabusShowTimes: Boolean = true,
+    val syllabusColorizeText: Boolean = true,
+    val dashboardMotionEnabled: Boolean = true,
+    val dashboardMotionStrength: Int = 26,
+    val dashboardCountdownTextSize: Int = 62,
+    val dashboardCardBorderWidth: Int = 2,
+    val touchAnimationsEnabled: Boolean = true,
+    val touchAnimationIntensity: Int = 60,
+    val touchAnimationStyle: Int = 0,
+    val appBackgroundMode: Int = 0,
+    val appLanguage: String = "tr",
     val quoteList: List<com.zilagent.app.data.entity.Quote> = emptyList()
 )
 
@@ -61,6 +79,7 @@ class SettingsViewModel(
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+    private fun isEn(): Boolean = WidgetStore.getAppLanguage(getApplication()) == "en"
 
     init {
         loadSettings()
@@ -118,7 +137,25 @@ class SettingsViewModel(
                 widgetFlowDirection = WidgetStore.getWidgetFlowDirection(context),
                 widgetAlignment = WidgetStore.getWidgetAlignment(context),
                 widgetSpacing = WidgetStore.getWidgetSpacing(context),
-                widgetElementOrder = WidgetStore.getWidgetElementOrder(context)
+                widgetElementOrder = WidgetStore.getWidgetElementOrder(context),
+                panoramicTimeTextSize = WidgetStore.getPanoramicTimeTextSize(context),
+                panoramicTitleTextSize = WidgetStore.getPanoramicTitleTextSize(context),
+                syllabusFlowTextSize = WidgetStore.getSyllabusFlowTextSize(context),
+                syllabusStatusTextSize = WidgetStore.getSyllabusStatusTextSize(context),
+                syllabusShowIcons = WidgetStore.isSyllabusShowIcons(context),
+                syllabusShowClassColors = WidgetStore.isSyllabusShowClassColors(context),
+                syllabusShowBreaks = WidgetStore.isSyllabusShowBreaks(context),
+                syllabusShowTimes = WidgetStore.isSyllabusShowTimes(context),
+                syllabusColorizeText = WidgetStore.isSyllabusColorizeText(context),
+                dashboardMotionEnabled = WidgetStore.isDashboardMotionEnabled(context),
+                dashboardMotionStrength = WidgetStore.getDashboardMotionStrength(context),
+                dashboardCountdownTextSize = WidgetStore.getDashboardCountdownTextSize(context),
+                dashboardCardBorderWidth = WidgetStore.getDashboardCardBorderWidth(context),
+                touchAnimationsEnabled = WidgetStore.isTouchAnimationsEnabled(context),
+                touchAnimationIntensity = WidgetStore.getTouchAnimationIntensity(context),
+                touchAnimationStyle = WidgetStore.getTouchAnimationStyle(context),
+                appBackgroundMode = WidgetStore.getAppBackgroundMode(context),
+                appLanguage = WidgetStore.getAppLanguage(context),
             )
         }
     }
@@ -311,6 +348,132 @@ class SettingsViewModel(
         triggerWidgetUpdate()
     }
 
+    fun onPanoramicTimeTextSizeChange(size: Int) {
+        WidgetStore.setPanoramicTimeTextSize(getApplication(), size)
+        _uiState.value = _uiState.value.copy(panoramicTimeTextSize = size)
+        triggerWidgetUpdate()
+    }
+
+    fun onPanoramicTitleTextSizeChange(size: Int) {
+        WidgetStore.setPanoramicTitleTextSize(getApplication(), size)
+        _uiState.value = _uiState.value.copy(panoramicTitleTextSize = size)
+        triggerWidgetUpdate()
+    }
+
+    fun onSyllabusFlowTextSizeChange(size: Int) {
+        WidgetStore.setSyllabusFlowTextSize(getApplication(), size)
+        _uiState.value = _uiState.value.copy(syllabusFlowTextSize = size)
+        triggerWidgetUpdate()
+    }
+
+    fun onSyllabusStatusTextSizeChange(size: Int) {
+        WidgetStore.setSyllabusStatusTextSize(getApplication(), size)
+        _uiState.value = _uiState.value.copy(syllabusStatusTextSize = size)
+        triggerWidgetUpdate()
+    }
+
+    fun onSyllabusShowIconsChange(enabled: Boolean) {
+        WidgetStore.setSyllabusShowIcons(getApplication(), enabled)
+        _uiState.value = _uiState.value.copy(syllabusShowIcons = enabled)
+        triggerWidgetUpdate()
+    }
+
+    fun onSyllabusShowClassColorsChange(enabled: Boolean) {
+        WidgetStore.setSyllabusShowClassColors(getApplication(), enabled)
+        _uiState.value = _uiState.value.copy(syllabusShowClassColors = enabled)
+        triggerWidgetUpdate()
+    }
+
+    fun onSyllabusShowBreaksChange(enabled: Boolean) {
+        WidgetStore.setSyllabusShowBreaks(getApplication(), enabled)
+        _uiState.value = _uiState.value.copy(syllabusShowBreaks = enabled)
+        triggerWidgetUpdate()
+    }
+
+    fun onSyllabusShowTimesChange(enabled: Boolean) {
+        WidgetStore.setSyllabusShowTimes(getApplication(), enabled)
+        _uiState.value = _uiState.value.copy(syllabusShowTimes = enabled)
+        triggerWidgetUpdate()
+    }
+
+    fun onSyllabusColorizeTextChange(enabled: Boolean) {
+        WidgetStore.setSyllabusColorizeText(getApplication(), enabled)
+        _uiState.value = _uiState.value.copy(syllabusColorizeText = enabled)
+        triggerWidgetUpdate()
+    }
+
+    fun onDashboardMotionEnabledChange(enabled: Boolean) {
+        WidgetStore.setDashboardMotionEnabled(getApplication(), enabled)
+        _uiState.value = _uiState.value.copy(dashboardMotionEnabled = enabled)
+    }
+
+    fun onDashboardMotionStrengthChange(strength: Int) {
+        WidgetStore.setDashboardMotionStrength(getApplication(), strength)
+        _uiState.value = _uiState.value.copy(dashboardMotionStrength = strength.coerceIn(5, 60))
+    }
+
+    fun onDashboardCountdownTextSizeChange(size: Int) {
+        WidgetStore.setDashboardCountdownTextSize(getApplication(), size)
+        _uiState.value = _uiState.value.copy(dashboardCountdownTextSize = size.coerceIn(40, 120))
+    }
+
+    fun onDashboardCardBorderWidthChange(width: Int) {
+        WidgetStore.setDashboardCardBorderWidth(getApplication(), width)
+        _uiState.value = _uiState.value.copy(dashboardCardBorderWidth = width.coerceIn(1, 8))
+    }
+
+    fun onTouchAnimationsEnabledChange(enabled: Boolean) {
+        WidgetStore.setTouchAnimationsEnabled(getApplication(), enabled)
+        _uiState.value = _uiState.value.copy(touchAnimationsEnabled = enabled)
+    }
+
+    fun onTouchAnimationIntensityChange(intensity: Int) {
+        val safe = intensity.coerceIn(10, 100)
+        WidgetStore.setTouchAnimationIntensity(getApplication(), safe)
+        _uiState.value = _uiState.value.copy(touchAnimationIntensity = safe)
+    }
+
+    fun onTouchAnimationStyleChange(style: Int) {
+        val safe = style.coerceIn(0, 2)
+        WidgetStore.setTouchAnimationStyle(getApplication(), safe)
+        _uiState.value = _uiState.value.copy(touchAnimationStyle = safe)
+    }
+
+    fun onAppBackgroundModeChange(mode: Int) {
+        val safe = mode.coerceIn(0, 4)
+        WidgetStore.setAppBackgroundMode(getApplication(), safe)
+        _uiState.value = _uiState.value.copy(appBackgroundMode = safe)
+    }
+
+    fun onAppLanguageChange(languageCode: String) {
+        val safe = if (languageCode.lowercase() == "en") "en" else "tr"
+        WidgetStore.setAppLanguage(getApplication(), safe)
+        _uiState.value = _uiState.value.copy(appLanguage = safe)
+        viewModelScope.launch {
+            reseedSystemSubjectsForLanguage(safe)
+            reseedSystemQuotesForLanguage(safe)
+        }
+    }
+
+    private suspend fun reseedSystemSubjectsForLanguage(languageCode: String) {
+        val all = syllabusDao.getAllSubjectsSync()
+        all.filter { it.isSystem }.forEach { syllabusDao.deleteSubject(it) }
+        val samples = if (languageCode == "en") {
+            com.zilagent.app.util.SubjectConstants.MIDDLE_SCHOOL_SUBJECTS_EN
+        } else {
+            com.zilagent.app.util.SubjectConstants.MIDDLE_SCHOOL_SUBJECTS_TR
+        }
+        samples.forEach { name ->
+            syllabusDao.insertSubject(com.zilagent.app.data.entity.SchoolSubject(name = name, isSystem = true))
+        }
+    }
+
+    private suspend fun reseedSystemQuotesForLanguage(languageCode: String) {
+        quoteDao.deleteAllSystemQuotes()
+        val quotes = com.zilagent.app.util.QuoteConstants.systemQuotes(languageCode)
+        quoteDao.insertQuotes(quotes.map { com.zilagent.app.data.entity.Quote(content = it, isSystem = true) })
+    }
+
     fun createBackup(context: android.content.Context, uri: android.net.Uri) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             com.zilagent.app.util.BackupManager.createBackup(context, uri)
@@ -375,8 +538,12 @@ class SettingsViewModel(
                 val data = TransferData(profile.name, schedules, syllabus)
                 // Serialize in IO
                 val bitmap = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    val compressed = QrUtils.compressAndSerialize(data)
-                    QrUtils.generateQrBitmap(compressed)
+                    try {
+                        val compressed = QrUtils.compressAndSerialize(data)
+                        QrUtils.generateQrBitmap(compressed)
+                    } catch (_: Exception) {
+                        null
+                    }
                 }
                 onResult(bitmap)
             } else {
@@ -389,9 +556,10 @@ class SettingsViewModel(
         viewModelScope.launch {
             val success = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 val data = QrUtils.decompressAndDeserialize(scannedData, TransferData::class.java)
-                if (data != null) {
+                if (data != null && isValidTransferData(data)) {
                     // Create new profile
-                    val newId = bellDao.insertProfile(Profile(name = "${data.profileName} (İçe Aktarılan)"))
+                    val importedSuffix = if (isEn()) "(Imported)" else "(İçe Aktarılan)"
+                    val newId = bellDao.insertProfile(Profile(name = "${data.profileName} $importedSuffix"))
                     
                     // Process schedules
                     data.bellSchedules.forEach { 
@@ -411,6 +579,27 @@ class SettingsViewModel(
         }
     }
 
+    private fun isValidTransferData(data: TransferData): Boolean {
+        if (data.profileName.isBlank() || data.profileName.length > 80) return false
+        if (data.bellSchedules.size > 500) return false
+        if (data.syllabusEntries.size > 500) return false
+
+        val schedulesOk = data.bellSchedules.all { s ->
+            s.dayOfWeek in 0..7 &&
+                s.startTime in 0..(24 * 60 - 1) &&
+                s.endTime in 1..(24 * 60) &&
+                s.startTime < s.endTime &&
+                s.orderIndex in 0..200 &&
+                s.name.length <= 80
+        }
+        if (!schedulesOk) return false
+
+        return data.syllabusEntries.all { e ->
+            e.dayOfWeek in 1..7 &&
+                e.lessonOrder in 1..200
+        }
+    }
+
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
@@ -421,3 +610,4 @@ class SettingsViewModel(
         }
     }
 }
+

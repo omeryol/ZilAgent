@@ -1,4 +1,4 @@
-package com.zilagent.app.ui.settings
+﻿package com.zilagent.app.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -25,11 +25,14 @@ data class CreateScheduleUiState(
     val lessonCount: String = "8",
     val lessonDuration: String = "40",
     val breakDuration: String = "10", // Base default, logic handles specifics
+    val firstBreakDuration: String = "",
+    val secondBreakDuration: String = "",
     val startTime: String = "08:00",
     val lunchBreakAfter: String = "5",
     val lunchBreakDuration: String = "40",
     val morningAssemblyDuration: String = "10",
     val preBellDuration: String = "0", // 0 mean disabled
+    val lessonStartNotifyEnabled: Boolean = true,
     val countdownColorEnabled: Boolean = false,
     // Custom Countdown
     val customModeEnabled: Boolean = false,
@@ -59,24 +62,51 @@ class CreateScheduleViewModel(
         viewModelScope.launch {
             val profile = bellDao.getAllProfiles().first().find { it.id == id }
             if (profile != null) {
+                val allSchedules = bellDao.getAllSchedulesForProfileSync(id)
+                val inferredDays = allSchedules
+                    .map { it.dayOfWeek }
+                    .filter { it in 1..7 }
+                    .toSet()
+                    .ifEmpty { setOf(1, 2, 3, 4, 5) }
+
                 // Fetch schedules for Monday (day 1) to infer settings
                 val schedules = bellDao.getSchedulesForProfileSync(id, 1)
                 
                 if (schedules.isNotEmpty()) {
-                    val lessons = schedules.filter { !it.isBreak && it.name.contains("Yazma") == false && it.name.contains("Töreni") == false}
-                    val firstLesson = schedules.find { it.name.contains("1. Ders") }
-                    val assembly = schedules.find { it.name.contains("Töreni") }
+                    val lessons = schedules.filter { item ->
+                        !item.isBreak && (item.name.lowercase().contains("ders") || item.name.lowercase().contains("lesson"))
+                    }
+                    val firstLesson = schedules.find {
+                        val n = it.name.lowercase()
+                        n.contains("1. ders") || n.contains("1. lesson")
+                    }
+                    val assembly = schedules.find {
+                        val n = it.name.lowercase()
+                        n.contains("tören") || n.contains("assembly")
+                    }
                     
                     val lessonDur = lessons.firstOrNull()?.let { it.endTime - it.startTime } ?: 40
                     val startTime = firstLesson?.startTime ?: 480
                     val assemblyDur = assembly?.let { it.endTime - it.startTime } ?: 0
                     
-                    // Try to find a normal break (not lunch)
-                    val normalBreak = schedules.find { it.isBreak && (it.endTime - it.startTime) < 30 && !it.name.contains("Hazırlık") }
+                    // Try to find normal breaks (exclude lunch and prep)
+                    val normalBreaks = schedules
+                        .filter {
+                            val n = it.name.lowercase()
+                            it.isBreak && (it.endTime - it.startTime) < 30 && !n.contains("haz") && !n.contains("prep")
+                        }
+                        .sortedBy { it.startTime }
+                    val normalBreak = normalBreaks.firstOrNull()
                     val breakDur = normalBreak?.let { it.endTime - it.startTime } ?: 10
+                    val firstBreakDur = normalBreaks.getOrNull(0)?.let { it.endTime - it.startTime }
+                    val secondBreakDur = normalBreaks.getOrNull(1)?.let { it.endTime - it.startTime }
                     
-                    val preBell = schedules.find { it.name.contains("Hazırlık") }
+                    val preBell = schedules.find {
+                        val n = it.name.lowercase()
+                        n.contains("hazırlık") || n.contains("prep")
+                    }
                     val preBellDur = preBell?.let { it.endTime - it.startTime } ?: 0
+                    val lessonStartNotify = schedules.any { !it.isBreak && it.notifyAtStart }
 
                     // Lunch break
                     val lunchBreak = schedules.find { it.isBreak && (it.endTime - it.startTime) >= 30 }
@@ -87,19 +117,24 @@ class CreateScheduleViewModel(
 
                     _uiState.value = _uiState.value.copy(
                         profileName = profile.name,
+                        selectedDays = inferredDays,
                         lessonCount = lessons.size.toString(),
                         lessonDuration = lessonDur.toString(),
                         breakDuration = breakDur.toString(),
+                        firstBreakDuration = firstBreakDur?.toString().orEmpty(),
+                        secondBreakDuration = secondBreakDur?.toString().orEmpty(),
                         startTime = String.format("%02d:%02d", startTime / 60, startTime % 60),
                         lunchBreakAfter = (lunchAfter ?: 5).toString(),
                         lunchBreakDuration = lunchDur.toString(),
                         morningAssemblyDuration = assemblyDur.toString(),
                         preBellDuration = preBellDur.toString(),
+                        lessonStartNotifyEnabled = lessonStartNotify,
                         countdownColorEnabled = com.zilagent.app.widget.WidgetStore.isDynamicColorEnabled(getApplication())
                     )
                 } else {
                     _uiState.value = _uiState.value.copy(
                         profileName = profile.name,
+                        selectedDays = inferredDays,
                         countdownColorEnabled = com.zilagent.app.widget.WidgetStore.isDynamicColorEnabled(getApplication())
                     )
                 }
@@ -130,11 +165,14 @@ class CreateScheduleViewModel(
     fun onLessonCountChange(value: String) { _uiState.value = _uiState.value.copy(lessonCount = value) }
     fun onLessonDurationChange(value: String) { _uiState.value = _uiState.value.copy(lessonDuration = value) }
     fun onBreakDurationChange(value: String) { _uiState.value = _uiState.value.copy(breakDuration = value) }
+    fun onFirstBreakDurationChange(value: String) { _uiState.value = _uiState.value.copy(firstBreakDuration = value) }
+    fun onSecondBreakDurationChange(value: String) { _uiState.value = _uiState.value.copy(secondBreakDuration = value) }
     fun onStartTimeChange(value: String) { _uiState.value = _uiState.value.copy(startTime = value) }
     fun onLunchBreakAfterChange(value: String) { _uiState.value = _uiState.value.copy(lunchBreakAfter = value) }
     fun onLunchBreakDurationChange(value: String) { _uiState.value = _uiState.value.copy(lunchBreakDuration = value) }
     fun onMorningAssemblyDurationChange(value: String) { _uiState.value = _uiState.value.copy(morningAssemblyDuration = value) }
     fun onPreBellDurationChange(value: String) { _uiState.value = _uiState.value.copy(preBellDuration = value) }
+    fun onLessonStartNotifyEnabledChange(value: Boolean) { _uiState.value = _uiState.value.copy(lessonStartNotifyEnabled = value) }
     fun onCountdownColorEnabledChange(value: Boolean) { _uiState.value = _uiState.value.copy(countdownColorEnabled = value) }
     
     // Custom Mode Updates
@@ -151,6 +189,9 @@ class CreateScheduleViewModel(
                 val lessonCount = _uiState.value.lessonCount.toIntOrNull() ?: 8
                 val lessonDuration = _uiState.value.lessonDuration.toIntOrNull() ?: 40
                 val breakDuration = _uiState.value.breakDuration.toIntOrNull() ?: 10
+                val appLanguage = com.zilagent.app.widget.WidgetStore.getAppLanguage(getApplication())
+                val firstBreakDuration = _uiState.value.firstBreakDuration.toIntOrNull()
+                val secondBreakDuration = _uiState.value.secondBreakDuration.toIntOrNull()
                 val start = _uiState.value.startTime
                 val lunchAfter = _uiState.value.lunchBreakAfter.toIntOrNull()
                 val lunchDuration = _uiState.value.lunchBreakDuration.toIntOrNull() ?: 45
@@ -190,15 +231,24 @@ class CreateScheduleViewModel(
                     val daySchedules = ScheduleGenerator.generateSchedule(
                         profileId = profileId,
                         dayOfWeek = day,
+                        languageCode = appLanguage,
                         firstLessonStart = start, // Note: ScheduleGenerator now puts Ceremony BEFORE this time
                         lessonDurationMinutes = lessonDuration,
                         breakDurationMinutes = breakDuration,
+                        firstBreakDurationMinutes = firstBreakDuration,
+                        secondBreakDurationMinutes = secondBreakDuration,
                         lessonCount = lessonCount,
                         lunchBreakAfterLesson = lunchAfter,
                         lunchBreakDurationMinutes = lunchDuration,
                         morningAssemblyDuration = assemblyDuration,
                         preBellMinutes = _uiState.value.preBellDuration.toIntOrNull() ?: 0
-                    )
+                    ).map { schedule ->
+                        if (schedule.isBreak) {
+                            schedule.copy(notifyAtStart = false)
+                        } else {
+                            schedule.copy(notifyAtStart = _uiState.value.lessonStartNotifyEnabled)
+                        }
+                    }
                     allGeneratedSchedules.addAll(daySchedules)
                 }
 
@@ -212,6 +262,10 @@ class CreateScheduleViewModel(
                 
                 // Save Widget Preference
                 com.zilagent.app.widget.WidgetStore.setDynamicColorEnabled(getApplication(), _uiState.value.countdownColorEnabled)
+
+                // Sync working-days mask with selected profile days
+                val mask = buildWorkingDaysMask(daysToGenerate)
+                com.zilagent.app.widget.WidgetStore.setWorkingDays(getApplication(), mask)
                 
                 // Save Custom Countdown
                 val customTimeParts = _uiState.value.customModeTime.split(":")
@@ -245,6 +299,12 @@ class CreateScheduleViewModel(
         _uiState.value = _uiState.value.copy(saveComplete = false)
     }
 
+    private fun buildWorkingDaysMask(days: Set<Int>): String {
+        return (1..7).joinToString(separator = "") { day ->
+            if (days.contains(day)) "1" else "0"
+        }
+    }
+
     companion object {
         fun provideFactory(application: ZilAgentApp, profileId: Long): ViewModelProvider.Factory = viewModelFactory {
             initializer {
@@ -264,3 +324,4 @@ class CreateScheduleViewModel(
         }
     }
 }
+

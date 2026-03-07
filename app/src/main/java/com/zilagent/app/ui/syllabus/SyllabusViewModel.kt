@@ -50,7 +50,7 @@ class SyllabusViewModel(
                 if (profile != null) {
                     _uiState.update { it.copy(currentProfileId = profile.id) }
                     // Combine with selectedDay changes
-                    snapshotFlow { _uiState.value.selectedDay }.flatMapLatest { day ->
+                    _uiState.map { it.selectedDay }.distinctUntilChanged().flatMapLatest { day ->
                         bellDao.getSchedulesForProfile(profile.id, day)
                     }
                 } else {
@@ -153,7 +153,7 @@ class SyllabusViewModel(
         // Note: Ideally this should also be observed in VM, but for now this works 
         // as long as the ProfileID is updated in uiState (which it is via observeData)
         
-        return snapshotFlow { _uiState.value.currentProfileId }
+        return _uiState.map { it.currentProfileId }.distinctUntilChanged()
             .flatMapLatest { pid ->
                 if (pid != -1L) syllabusDao.getSyllabusForDay(pid, day) else flowOf(emptyList())
             }
@@ -163,6 +163,23 @@ class SyllabusViewModel(
         val profileId = _uiState.value.currentProfileId
         if (profileId == -1L) return flowOf(emptyList())
         return lessonNoteDao.getNotesForDay(profileId, day)
+    }
+
+    fun copyDayPlan(fromDay: Int, toDay: Int) {
+        val profileId = _uiState.value.currentProfileId
+        if (profileId == -1L || fromDay == toDay) return
+
+        viewModelScope.launch {
+            val source = syllabusDao.getSyllabusForDaySync(profileId, fromDay)
+            syllabusDao.deleteSyllabusForDay(profileId, toDay)
+            if (source.isNotEmpty()) {
+                val mapped = source.map {
+                    it.copy(dayOfWeek = toDay)
+                }
+                syllabusDao.insertSyllabusEntries(mapped)
+            }
+            com.zilagent.app.manager.BellManager(getApplication()).refreshWidgetState()
+        }
     }
     
     fun saveNote(lessonOrder: Int, noteContent: String) {

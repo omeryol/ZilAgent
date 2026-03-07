@@ -1,1 +1,1 @@
-Okul zili takip, geri sayım ve özelleştirilebilir widget uygulaması.
+﻿Okul zili takibi, geri sayım ve widget desteği (çevrimdışı).

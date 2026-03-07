@@ -1,4 +1,4 @@
-package com.zilagent.app.ui.settings
+﻿package com.zilagent.app.ui.settings
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -36,14 +36,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import com.google.common.util.concurrent.ListenableFuture
 import com.google.zxing.BinaryBitmap
 import com.google.zxing.MultiFormatReader
 import com.google.zxing.PlanarYUVLuminanceSource
 import com.google.zxing.common.HybridBinarizer
+import com.zilagent.app.ui.components.AppLanguage
+import com.zilagent.app.ui.components.LocalAppLanguage
 import java.util.concurrent.Executors
 
 @Composable
@@ -51,6 +52,9 @@ fun QrScanScreen(
     onDismiss: () -> Unit,
     onCodeScanned: (String) -> Unit
 ) {
+    val appLanguage = LocalAppLanguage.current
+    fun trEn(tr: String, en: String): String = if (appLanguage == AppLanguage.EN) en else tr
+
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var hasCameraPermission by remember {
@@ -98,7 +102,7 @@ fun QrScanScreen(
                             val buffer = imageProxy.planes[0].buffer
                             val data = ByteArray(buffer.remaining())
                             buffer.get(data)
-                            
+
                             val source = PlanarYUVLuminanceSource(
                                 data,
                                 imageProxy.width,
@@ -114,10 +118,8 @@ fun QrScanScreen(
                             try {
                                 val result = MultiFormatReader().decode(binaryBitmap)
                                 onCodeScanned(result.text)
-                                imageProxy.close() // Close after success to stop analyzing? Or keep open? UIs usually close.
-                                // But onCodeScanned might navigate away.
-                            } catch (e: Exception) {
-                                // Not found
+                            } catch (_: Exception) {
+                                // Continue scanning
                             } finally {
                                 imageProxy.close()
                             }
@@ -139,25 +141,27 @@ fun QrScanScreen(
                 },
                 modifier = Modifier.fillMaxSize()
             )
-            
+
             IconButton(
                 onClick = onDismiss,
-                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
             ) {
-                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                Icon(Icons.Default.Close, contentDescription = trEn("Kapat", "Close"), tint = Color.White)
             }
         }
     } else {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
                 Text(
-                    "Kamera İzni Eksik",
+                    trEn("Kamera İzni Eksik", "Camera Permission Missing"),
                     style = MaterialTheme.typography.titleMedium,
                     color = Color.White
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    "QR kodu taramak için kamera izni gereklidir.",
+                    trEn("QR kodu taramak için kamera izni gereklidir.", "Camera permission is required to scan QR codes."),
                     color = Color.White.copy(alpha = 0.7f),
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -166,11 +170,11 @@ fun QrScanScreen(
                     onClick = { launcher.launch(Manifest.permission.CAMERA) },
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White)
                 ) {
-                    Text("İzin Ver", color = Color.Black)
+                    Text(trEn("İzin Ver", "Allow"), color = Color.Black)
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 TextButton(onClick = onDismiss) {
-                    Text("İptal", color = Color.White.copy(alpha = 0.7f))
+                    Text(trEn("İptal", "Cancel"), color = Color.White.copy(alpha = 0.7f))
                 }
             }
         }

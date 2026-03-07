@@ -88,11 +88,14 @@ class DashboardViewModel(
             val daySchedules = com.zilagent.app.domain.ScheduleGenerator.generateSchedule(
                 profileId = profileId,
                 dayOfWeek = day,
+                languageCode = "tr",
                 firstLessonStart = "08:00",
                 lessonDurationMinutes = 40,
                 breakDurationMinutes = 10,
+                firstBreakDurationMinutes = null,
+                secondBreakDurationMinutes = null,
                 lessonCount = 8,
-                lunchBreakAfterLesson = 4,
+                lunchBreakAfterLesson = 5,
                 lunchBreakDurationMinutes = 40,
                 morningAssemblyDuration = 10
             )
@@ -181,7 +184,7 @@ class DashboardViewModel(
     private fun calculateStatus(schedules: List<BellSchedule>) {
         if (bellManager.isHolidayToday()) {
             if (currentHolidayQuote == null) {
-                currentHolidayQuote = com.zilagent.app.util.QuoteConstants.getRandomQuote()
+                currentHolidayQuote = com.zilagent.app.util.QuoteConstants.getRandomQuote(bellManager.getAppLanguage())
             }
             _uiState.value = _uiState.value.copy(
                 nextBell = null,

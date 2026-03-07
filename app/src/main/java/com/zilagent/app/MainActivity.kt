@@ -17,23 +17,37 @@ import androidx.navigation.compose.rememberNavController
 import com.zilagent.app.ui.dashboard.DashboardScreen
 import com.zilagent.app.ui.settings.SettingsScreen
 import com.zilagent.app.ui.onboarding.OnboardingScreen
+import com.zilagent.app.ui.components.AppLanguage
+import com.zilagent.app.ui.components.LocalAppLanguage
+import com.zilagent.app.ui.components.LocalPremiumMotionConfig
+import com.zilagent.app.ui.components.PremiumMotionConfig
 import com.zilagent.app.ui.theme.ZilAgentTheme
 import com.zilagent.app.widget.WidgetStore
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Force a full widget state sync when app opens so stale RemoteViews are replaced.
+        runCatching { com.zilagent.app.manager.BellManager(this).refreshWidgetState() }
         setContent {
             // Reactive Theme Mode State
             // Reactive Theme States
             var themeModeState by remember { mutableStateOf(WidgetStore.getThemeMode(this)) }
             var themeColorState by remember { mutableStateOf(WidgetStore.getThemeColorName(this)) }
+            var touchAnimationsEnabled by remember { mutableStateOf(WidgetStore.isTouchAnimationsEnabled(this)) }
+            var touchAnimationIntensity by remember { mutableStateOf(WidgetStore.getTouchAnimationIntensity(this)) }
+            var touchAnimationStyle by remember { mutableStateOf(WidgetStore.getTouchAnimationStyle(this)) }
+            var appLanguageState by remember { mutableStateOf(WidgetStore.getAppLanguage(this)) }
             
             val listener = remember {
                 SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
                     when (key) {
                         "THEME_MODE" -> themeModeState = prefs.getInt(key, 0)
                         "THEME_COLOR" -> themeColorState = prefs.getString(key, "Lavanta") ?: "Lavanta"
+                        "TOUCH_ANIMATIONS_ENABLED" -> touchAnimationsEnabled = prefs.getBoolean(key, true)
+                        "TOUCH_ANIMATIONS_INTENSITY" -> touchAnimationIntensity = prefs.getInt(key, 60)
+                        "TOUCH_ANIMATIONS_STYLE" -> touchAnimationStyle = prefs.getInt(key, 0)
+                        "APP_LANGUAGE" -> appLanguageState = prefs.getString(key, "tr") ?: "tr"
                     }
                 }
             }
@@ -51,15 +65,32 @@ class MainActivity : ComponentActivity() {
             }
 
             ZilAgentTheme(darkTheme = isDark, colorPaletteName = themeColorState, dynamicColor = false) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                CompositionLocalProvider(
+                    LocalAppLanguage provides AppLanguage.fromCode(appLanguageState),
+                    LocalPremiumMotionConfig provides PremiumMotionConfig(
+                        enabled = touchAnimationsEnabled,
+                        intensity = touchAnimationIntensity,
+                        style = touchAnimationStyle,
+                    )
                 ) {
-                    val startExam = intent.getBooleanExtra("START_EXAM_MODE", false)
-                    ZilAgentAppNavHost(startExamMode = startExam)
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        val startExam = intent.getBooleanExtra("START_EXAM_MODE", false)
+                        ZilAgentAppNavHost(startExamMode = startExam)
+                    }
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Also refresh when returning to foreground to avoid stale widget cache on launcher.
+        runCatching { com.zilagent.app.manager.BellManager(this).refreshWidgetState() }
+        runCatching { com.zilagent.app.widget.PanoramicCountdownWidget.updateAll(this) }
+        runCatching { com.zilagent.app.widget.SyllabusWidget.updateAll(this) }
     }
 }
 

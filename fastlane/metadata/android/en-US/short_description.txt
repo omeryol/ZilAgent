@@ -1,1 +1,1 @@
-School bell tracker, countdown and customizable widget app.
+﻿School bell schedules, countdown and widget tracking (offline).

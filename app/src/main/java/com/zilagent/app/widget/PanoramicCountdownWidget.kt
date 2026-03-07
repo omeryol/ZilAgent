@@ -1,4 +1,4 @@
-package com.zilagent.app.widget
+﻿package com.zilagent.app.widget
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -24,156 +24,117 @@ class PanoramicCountdownWidget : AppWidgetProvider() {
 
     companion object {
         fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
-            val flow = WidgetStore.getWidgetFlowDirection(context)
-            val order = WidgetStore.getWidgetElementOrder(context)
-            
-            val layoutId = if (flow == 0) {
-                if (order == 0) R.layout.widget_dynamic_v else R.layout.widget_dynamic_v_alt
-            } else {
-                if (order == 0) R.layout.widget_dynamic_h else R.layout.widget_dynamic_h_alt
-            }
-            
-            val views = RemoteViews(context.packageName, layoutId)
-
-            val alignment = WidgetStore.getWidgetAlignment(context)
-            val spacing = WidgetStore.getWidgetSpacing(context)
-            
-            val gravity = when(alignment) {
-                0 -> android.view.Gravity.START or android.view.Gravity.CENTER_VERTICAL
-                2 -> android.view.Gravity.END or android.view.Gravity.CENTER_VERTICAL
-                else -> android.view.Gravity.CENTER
-            }
-            views.setInt(R.id.content_block, "setGravity", gravity)
-            
-            val contentGravity = when(alignment) {
-                0 -> android.view.Gravity.START
-                2 -> android.view.Gravity.END
-                else -> android.view.Gravity.CENTER_HORIZONTAL
-            }
-            if (flow == 0) views.setInt(R.id.content_block, "setGravity", contentGravity)
-            views.setInt(R.id.widget_title, "setGravity", contentGravity)
-
-            val density = context.resources.displayMetrics.density
-            val spacingPx = (spacing * density).toInt()
-            
-            val secondElementId = if (order == 0) R.id.widget_title else R.id.widget_chronometer
-            val firstElementId = if (order == 0) R.id.widget_chronometer else R.id.widget_title
-            
-            views.setViewLayoutMargin(firstElementId, RemoteViews.MARGIN_TOP, 0f, TypedValue.COMPLEX_UNIT_PX)
-            views.setViewLayoutMargin(firstElementId, RemoteViews.MARGIN_START, 0f, TypedValue.COMPLEX_UNIT_PX)
-            views.setViewLayoutMargin(secondElementId, RemoteViews.MARGIN_TOP, 0f, TypedValue.COMPLEX_UNIT_PX)
-            views.setViewLayoutMargin(secondElementId, RemoteViews.MARGIN_START, 0f, TypedValue.COMPLEX_UNIT_PX)
-
-            if (flow == 0) {
-                views.setViewLayoutMargin(secondElementId, RemoteViews.MARGIN_TOP, spacingPx.toFloat(), TypedValue.COMPLEX_UNIT_PX)
-            } else {
-                views.setViewLayoutMargin(secondElementId, RemoteViews.MARGIN_START, spacingPx.toFloat(), TypedValue.COMPLEX_UNIT_PX)
-            }
+            val views = RemoteViews(context.packageName, R.layout.widget_dynamic_h)
+            val isEn = WidgetStore.getAppLanguage(context) == "en"
+            fun t(tr: String, en: String): String = if (isEn) en else tr
 
             val (customEnabled, customTitle, customTime) = WidgetStore.getCustomCountdown(context)
-            var endTimeMinutes: Int
-            var bellName: String
-            
+            val endTimeMinutes: Int
+            val bellName: String
             if (customEnabled && customTime != -1) {
                 endTimeMinutes = customTime
-                bellName = customTitle.ifEmpty { "Özel Sayaç" }
+                bellName = customTitle.ifEmpty { t("Özel sayaç", "Custom timer") }
             } else {
-                bellName = WidgetStore.getNextBellName(context) ?: "Bekleniyor..."
+                bellName = WidgetStore.getNextBellName(context) ?: t("Bekleniyor", "Waiting")
                 endTimeMinutes = WidgetStore.getNextBellTime(context)
             }
 
-            val textSize = WidgetStore.getWidgetTextSize(context)
-            val labelSize = WidgetStore.getWidgetLabelTextSize(context)
-            val opacity = WidgetStore.getWidgetBgOpacity(context)
-            val textColorHex = WidgetStore.getWidgetTextColor(context)
-            val bgColorHex = WidgetStore.getWidgetBgColor(context)
-            
-            val textColor = android.graphics.Color.parseColor(textColorHex)
-            val baseBgColor = android.graphics.Color.parseColor(bgColorHex)
-            val alpha = (opacity * 255) / 100
-            val finalBgColor = android.graphics.Color.argb(alpha, android.graphics.Color.red(baseBgColor), android.graphics.Color.green(baseBgColor), android.graphics.Color.blue(baseBgColor))
+            val normalizedTitle = normalize(bellName, isEn)
+            val stage = normalizedTitle.substringBefore("•").trim().ifBlank { normalizedTitle }
+            val (currentLesson, totalLessons, isBreak) = WidgetStore.getLessonProgress(context)
+            val timeTextSize = WidgetStore.getPanoramicTimeTextSize(context).toFloat()
+            val titleTextSize = WidgetStore.getPanoramicTitleTextSize(context).toFloat()
+            val showProgress = WidgetStore.isProgressBarEnabled(context)
 
-            views.setInt(R.id.widget_root, "setBackgroundColor", finalBgColor)
-            views.setTextColor(R.id.widget_title, textColor)
-            views.setTextColor(R.id.widget_chronometer, textColor)
-            views.setTextColor(R.id.widget_percentage, textColor)
-            
-            views.setTextViewTextSize(R.id.widget_chronometer, TypedValue.COMPLEX_UNIT_SP, (textSize + 8).toFloat())
-            views.setTextViewTextSize(R.id.widget_title, TypedValue.COMPLEX_UNIT_SP, (labelSize + 2).toFloat())
-            views.setTextViewTextSize(R.id.widget_percentage, TypedValue.COMPLEX_UNIT_SP, (labelSize * 0.8).toFloat())
-            
+            views.setTextViewText(R.id.widget_title, normalizedTitle)
+            views.setTextViewText(R.id.widget_badge, if (customEnabled) t("SINAV MODU", "EXAM MODE") else t("SIRADAKİ ZİL", "NEXT BELL"))
+            views.setTextViewTextSize(R.id.widget_chronometer, TypedValue.COMPLEX_UNIT_SP, timeTextSize)
+            views.setTextViewTextSize(R.id.widget_title, TypedValue.COMPLEX_UNIT_SP, titleTextSize)
+            views.setTextViewTextSize(R.id.widget_meta, TypedValue.COMPLEX_UNIT_SP, (titleTextSize - 3f).coerceAtLeast(11f))
+
             if (endTimeMinutes != -1) {
                 val now = LocalTime.now()
                 val secondsDiff = (endTimeMinutes * 60 - now.toSecondOfDay()).toLong()
-                
                 if (secondsDiff > 0) {
-                    val isDynamicColor = WidgetStore.isDynamicColorEnabled(context)
-                    val activeColor = if (isDynamicColor) {
-                        com.zilagent.app.util.TimeUtils.getCountdownColor(secondsDiff)
-                    } else textColor
-
-                    views.setTextColor(R.id.widget_chronometer, activeColor)
-
                     if (WidgetStore.isShowSeconds(context)) {
                         val baseTime = SystemClock.elapsedRealtime() + (secondsDiff * 1000)
-                        views.setChronometer(R.id.widget_chronometer, baseTime, null, true)
+                        views.setChronometer(R.id.widget_chronometer, baseTime, "%s", true)
                         views.setChronometerCountDown(R.id.widget_chronometer, true)
                         views.setViewVisibility(R.id.widget_chronometer, View.VISIBLE)
                     } else {
-                        val minuteText = com.zilagent.app.util.TimeUtils.formatCountdown(secondsDiff, false)
-                        views.setViewVisibility(R.id.widget_chronometer, View.GONE)
-                        views.setTextViewText(R.id.widget_chronometer, minuteText)
+                        views.setTextViewText(R.id.widget_chronometer, formatDuration(secondsDiff))
                         views.setViewVisibility(R.id.widget_chronometer, View.VISIBLE)
                     }
-                    
-                    val isMultiline = WidgetStore.isMultilineEnabled(context)
-                    val labelText = if (isMultiline) {
-                        views.setInt(R.id.widget_title, "setMaxLines", 2)
-                        bellName.replace(" • ", "\n")
+                    val progressMeta = if (currentLesson > 0 && totalLessons > 0) {
+                        if (isBreak) {
+                            if (isEn) "$currentLesson/$totalLessons break" else "$currentLesson/$totalLessons teneffüs"
+                        } else {
+                            if (isEn) "$currentLesson/$totalLessons lesson" else "$currentLesson/$totalLessons ders"
+                        }
                     } else {
-                        views.setInt(R.id.widget_title, "setMaxLines", 1)
-                        bellName
+                        stage
                     }
-                    views.setTextViewText(R.id.widget_title, labelText)
+                    views.setTextViewText(R.id.widget_meta, "${t("Durum", "Status")}: $progressMeta")
                 } else {
-                    views.setViewVisibility(R.id.widget_chronometer, View.GONE)
-                    views.setTextViewText(R.id.widget_title, "Bitti")
+                    views.setTextViewText(R.id.widget_chronometer, "00:00")
+                    views.setTextViewText(R.id.widget_meta, t("Süre doldu", "Time is up"))
                 }
             } else {
-                views.setViewVisibility(R.id.widget_chronometer, View.GONE)
-                val isMultiline = WidgetStore.isMultilineEnabled(context)
-                val labelText = if (isMultiline) {
-                    views.setInt(R.id.widget_title, "setMaxLines", 2)
-                    bellName.replace(" • ", "\n")
+                views.setTextViewText(R.id.widget_chronometer, "--:--")
+                views.setTextViewText(R.id.widget_meta, t("Bugün ders yok", "No lessons today"))
+            }
+
+            views.setViewVisibility(R.id.widget_progress_bar, if (showProgress) View.VISIBLE else View.GONE)
+            if (showProgress) {
+                val (startMinutes, endMinutes) = WidgetStore.getCurrentEventTimes(context)
+                val nowMinutes = LocalTime.now().hour * 60 + LocalTime.now().minute
+                if (startMinutes != -1 && endMinutes != -1 && nowMinutes in startMinutes..endMinutes) {
+                    val totalDuration = endMinutes - startMinutes
+                    val elapsed = nowMinutes - startMinutes
+                    val progress = if (totalDuration > 0) {
+                        ((elapsed.toFloat() / totalDuration.toFloat()) * 100).toInt().coerceIn(0, 100)
+                    } else {
+                        0
+                    }
+                    views.setProgressBar(R.id.widget_progress_bar, 100, progress, false)
                 } else {
-                    views.setInt(R.id.widget_title, "setMaxLines", 1)
-                    bellName
+                    views.setProgressBar(R.id.widget_progress_bar, 100, 0, false)
                 }
-                views.setTextViewText(R.id.widget_title, labelText)
-            }
-
-            val (startMinutes, endMinutes) = WidgetStore.getCurrentEventTimes(context)
-            val nowMinutes = LocalTime.now().hour * 60 + LocalTime.now().minute
-            val isProgressBarVisible = WidgetStore.isProgressBarEnabled(context)
-
-            if (isProgressBarVisible && startMinutes != -1 && endMinutes != -1 && nowMinutes >= startMinutes && nowMinutes <= endMinutes) {
-                 val totalDuration = endMinutes - startMinutes
-                 val elapsed = nowMinutes - startMinutes
-                 if (totalDuration > 0) {
-                      val progress = ((elapsed.toFloat() / totalDuration.toFloat()) * 100).toInt()
-                      views.setProgressBar(R.id.widget_progress_bar, 100, progress, false)
-                      views.setViewVisibility(R.id.progress_container, View.VISIBLE)
-                      views.setTextViewText(R.id.widget_percentage, "${progress}%")
-                 }
             } else {
-                views.setViewVisibility(R.id.progress_container, View.GONE)
+                views.setProgressBar(R.id.widget_progress_bar, 100, 0, false)
             }
-            
-            val intent = Intent(context, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP }
-            val pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+            val intent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            val pendingIntent = PendingIntent.getActivity(
+                context,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
             views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
-            
+
             appWidgetManager.updateAppWidget(appWidgetId, views)
+        }
+
+        private fun normalize(raw: String, isEn: Boolean): String {
+            val tr = raw
+                .replace("Giriş", "Bitiş")
+                .replace("Giris", "Bitiş")
+            return if (isEn) {
+                tr.replace("Bitiş", "Ends")
+                    .replace("Ders", "Lesson")
+                    .replace("Teneffüs", "Break")
+            } else {
+                tr
+            }
+        }
+
+        private fun formatDuration(totalSeconds: Long): String {
+            val minutes = (totalSeconds / 60).coerceAtLeast(0)
+            val seconds = (totalSeconds % 60).coerceAtLeast(0)
+            return "%02d:%02d".format(minutes, seconds)
         }
 
         fun updateAll(context: Context) {

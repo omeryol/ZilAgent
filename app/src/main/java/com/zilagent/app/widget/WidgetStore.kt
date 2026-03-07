@@ -174,6 +174,23 @@ object WidgetStore {
         return Pair(start, end)
     }
 
+    fun setLessonProgress(context: Context, currentLesson: Int, totalLessons: Int, isBreak: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putInt("LESSON_PROGRESS_CURRENT", currentLesson)
+            .putInt("LESSON_PROGRESS_TOTAL", totalLessons)
+            .putBoolean("LESSON_PROGRESS_IS_BREAK", isBreak)
+            .apply()
+    }
+
+    fun getLessonProgress(context: Context): Triple<Int, Int, Boolean> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val current = prefs.getInt("LESSON_PROGRESS_CURRENT", -1)
+        val total = prefs.getInt("LESSON_PROGRESS_TOTAL", -1)
+        val isBreak = prefs.getBoolean("LESSON_PROGRESS_IS_BREAK", false)
+        return Triple(current, total, isBreak)
+    }
+
     fun setCustomCountdown(context: Context, enabled: Boolean, title: String, timeMinutes: Int) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit()
@@ -319,6 +336,228 @@ object WidgetStore {
     fun getWidgetElementOrder(context: Context): Int {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getInt("WIDGET_ELEMENT_ORDER", 0)
+    }
+
+    fun setPanoramicTimeTextSize(context: Context, size: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt("PANORAMIC_TIME_TEXT_SIZE", size).apply()
+        triggerAll(context)
+    }
+
+    fun getPanoramicTimeTextSize(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt("PANORAMIC_TIME_TEXT_SIZE", 30)
+    }
+
+    fun setPanoramicTitleTextSize(context: Context, size: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt("PANORAMIC_TITLE_TEXT_SIZE", size).apply()
+        triggerAll(context)
+    }
+
+    fun getPanoramicTitleTextSize(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt("PANORAMIC_TITLE_TEXT_SIZE", 15)
+    }
+
+    fun setSyllabusFlowTextSize(context: Context, size: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt("SYLLABUS_FLOW_TEXT_SIZE", size).apply()
+        triggerAll(context)
+    }
+
+    fun getSyllabusFlowTextSize(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt("SYLLABUS_FLOW_TEXT_SIZE", 15)
+    }
+
+    fun setSyllabusStatusTextSize(context: Context, size: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt("SYLLABUS_STATUS_TEXT_SIZE", size).apply()
+        triggerAll(context)
+    }
+
+    fun getSyllabusStatusTextSize(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt("SYLLABUS_STATUS_TEXT_SIZE", 15)
+    }
+
+    fun setSyllabusShowIcons(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("SYLLABUS_SHOW_ICONS", enabled).apply()
+        triggerAll(context)
+    }
+
+    fun isSyllabusShowIcons(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean("SYLLABUS_SHOW_ICONS", true)
+    }
+
+    fun setSyllabusShowClassColors(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("SYLLABUS_SHOW_CLASS_COLORS", enabled).apply()
+        triggerAll(context)
+    }
+
+    fun isSyllabusShowClassColors(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean("SYLLABUS_SHOW_CLASS_COLORS", true)
+    }
+
+    fun setSyllabusShowBreaks(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("SYLLABUS_SHOW_BREAKS", enabled).apply()
+        triggerAll(context)
+    }
+
+    fun isSyllabusShowBreaks(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean("SYLLABUS_SHOW_BREAKS", true)
+    }
+
+    fun setSyllabusShowTimes(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("SYLLABUS_SHOW_TIMES", enabled).apply()
+        triggerAll(context)
+    }
+
+    fun isSyllabusShowTimes(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean("SYLLABUS_SHOW_TIMES", true)
+    }
+
+    fun setSyllabusColorizeText(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("SYLLABUS_COLORIZE_TEXT", enabled).apply()
+        triggerAll(context)
+    }
+
+    fun isSyllabusColorizeText(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean("SYLLABUS_COLORIZE_TEXT", true)
+    }
+
+    fun setDashboardMotionEnabled(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("DASHBOARD_MOTION_ENABLED", enabled).apply()
+    }
+
+    fun isDashboardMotionEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return try {
+            prefs.getBoolean("DASHBOARD_MOTION_ENABLED", true)
+        } catch (_: Exception) {
+            true
+        }
+    }
+
+    fun setDashboardMotionStrength(context: Context, strength: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt("DASHBOARD_MOTION_STRENGTH", strength.coerceIn(5, 60)).apply()
+    }
+
+    fun getDashboardMotionStrength(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return try {
+            prefs.getInt("DASHBOARD_MOTION_STRENGTH", 26).coerceIn(5, 60)
+        } catch (_: Exception) {
+            26
+        }
+    }
+
+    fun setDashboardCountdownTextSize(context: Context, size: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt("DASHBOARD_COUNTDOWN_TEXT_SIZE", size.coerceIn(40, 120)).apply()
+    }
+
+    fun getDashboardCountdownTextSize(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return try {
+            prefs.getInt("DASHBOARD_COUNTDOWN_TEXT_SIZE", 62).coerceIn(40, 120)
+        } catch (_: Exception) {
+            62
+        }
+    }
+
+    fun setDashboardCardBorderWidth(context: Context, widthDp: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt("DASHBOARD_CARD_BORDER_WIDTH", widthDp.coerceIn(1, 8)).apply()
+    }
+
+    fun getDashboardCardBorderWidth(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return try {
+            prefs.getInt("DASHBOARD_CARD_BORDER_WIDTH", 2).coerceIn(1, 8)
+        } catch (_: Exception) {
+            2
+        }
+    }
+
+    fun setTouchAnimationsEnabled(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("TOUCH_ANIMATIONS_ENABLED", enabled).apply()
+    }
+
+    fun isTouchAnimationsEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return try {
+            prefs.getBoolean("TOUCH_ANIMATIONS_ENABLED", true)
+        } catch (_: Exception) {
+            true
+        }
+    }
+
+    fun setTouchAnimationIntensity(context: Context, intensity: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt("TOUCH_ANIMATIONS_INTENSITY", intensity.coerceIn(10, 100)).apply()
+    }
+
+    fun getTouchAnimationIntensity(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return try {
+            prefs.getInt("TOUCH_ANIMATIONS_INTENSITY", 60).coerceIn(10, 100)
+        } catch (_: Exception) {
+            60
+        }
+    }
+
+    fun setTouchAnimationStyle(context: Context, style: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt("TOUCH_ANIMATIONS_STYLE", style.coerceIn(0, 2)).apply()
+    }
+
+    fun getTouchAnimationStyle(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return try {
+            prefs.getInt("TOUCH_ANIMATIONS_STYLE", 0).coerceIn(0, 2)
+        } catch (_: Exception) {
+            0
+        }
+    }
+
+    fun setAppBackgroundMode(context: Context, mode: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt("APP_BACKGROUND_MODE", mode.coerceIn(0, 4)).apply()
+    }
+
+    fun getAppBackgroundMode(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return try {
+            prefs.getInt("APP_BACKGROUND_MODE", 0).coerceIn(0, 4)
+        } catch (_: Exception) {
+            0
+        }
+    }
+
+    fun setAppLanguage(context: Context, languageCode: String) {
+        val safe = if (languageCode.lowercase() == "en") "en" else "tr"
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putString("APP_LANGUAGE", safe).apply()
+    }
+
+    fun getAppLanguage(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString("APP_LANGUAGE", "tr") ?: "tr"
     }
 
     private fun triggerAll(context: Context) {

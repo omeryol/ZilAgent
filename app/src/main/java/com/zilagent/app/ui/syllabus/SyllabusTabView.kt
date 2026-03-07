@@ -1,7 +1,6 @@
-package com.zilagent.app.ui.syllabus
+﻿package com.zilagent.app.ui.syllabus
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.horizontalScroll
@@ -26,7 +25,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zilagent.app.data.entity.SyllabusEntry
+import com.zilagent.app.ui.components.AppLanguage
 import com.zilagent.app.ui.components.GlassCard
+import com.zilagent.app.ui.components.LocalAppLanguage
+import com.zilagent.app.ui.components.premiumClickable
+import com.zilagent.app.ui.components.premiumTouchEffect
 
 @Composable
 fun SyllabusTabView(
@@ -34,11 +37,14 @@ fun SyllabusTabView(
     onNavigateToSubjects: () -> Unit,
     viewModel: SyllabusViewModel = viewModel(factory = SyllabusViewModel.Factory)
 ) {
+    val appLanguage = LocalAppLanguage.current
+    fun trEn(tr: String, en: String): String = if (appLanguage == AppLanguage.EN) en else tr
     val uiState by viewModel.uiState.collectAsState()
     val syllabusEntries by viewModel.getSyllabusForDay(uiState.selectedDay).collectAsState(initial = emptyList())
     val notes by viewModel.getNotesForDay(uiState.selectedDay).collectAsState(initial = emptyList())
     
-    val days = listOf("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
+    val days = if (appLanguage == AppLanguage.EN) listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun") else listOf("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
+    var copyTargetDay by remember(uiState.selectedDay) { mutableStateOf(uiState.selectedDay) }
     
     // Dialog State: Pair(LessonOrder, CurrentNote)
     var noteDialogState by remember { mutableStateOf<Pair<Int, String>?>(null) }
@@ -49,12 +55,12 @@ fun SyllabusTabView(
         
         AlertDialog(
             onDismissRequest = { noteDialogState = null },
-            title = { Text("Ders Notu") },
+            title = { Text(trEn("Ders Notu", "Lesson Note")) },
             text = {
                 OutlinedTextField(
                     value = currentNote,
                     onValueChange = { currentNote = it },
-                    label = { Text("Notunuz") },
+                    label = { Text(trEn("Notunuz", "Your note")) },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 3
                 )
@@ -64,12 +70,12 @@ fun SyllabusTabView(
                     viewModel.saveNote(order, currentNote)
                     noteDialogState = null
                 }) {
-                    Text("Kaydet")
+                    Text(trEn("Kaydet", "Save"))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { noteDialogState = null }) {
-                    Text("İptal")
+                    Text(trEn("İptal", "Cancel"))
                 }
             }
         )
@@ -83,23 +89,23 @@ fun SyllabusTabView(
         ) {
             Button(
                 onClick = onNavigateToClasses,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).premiumTouchEffect(),
                 contentPadding = PaddingValues(8.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.15f))
             ) {
                 com.zilagent.app.ui.components.GradientIcon(Icons.Default.Class, com.zilagent.app.ui.components.IconGradients.Blue, size = 30.dp, iconSize = 16.dp)
                 Spacer(Modifier.width(8.dp))
-                Text("Sınıflar", color = Color.White, fontSize = 12.sp)
+                Text(trEn("Sınıflar", "Classes"), color = Color.White, fontSize = 12.sp)
             }
             Button(
                 onClick = onNavigateToSubjects,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).premiumTouchEffect(),
                 contentPadding = PaddingValues(8.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.15f))
             ) {
                 com.zilagent.app.ui.components.GradientIcon(Icons.Default.MenuBook, com.zilagent.app.ui.components.IconGradients.Purple, size = 30.dp, iconSize = 16.dp)
                 Spacer(Modifier.width(8.dp))
-                Text("Dersler", color = Color.White, fontSize = 12.sp)
+                Text(trEn("Dersler", "Subjects"), color = Color.White, fontSize = 12.sp)
             }
         }
         
@@ -124,7 +130,7 @@ fun SyllabusTabView(
                     modifier = Modifier
                         .clip(MaterialTheme.shapes.small)
                         .background(containerColor)
-                        .clickable { viewModel.onDaySelected(dayNum) }
+                        .premiumClickable { viewModel.onDaySelected(dayNum) }
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -140,11 +146,52 @@ fun SyllabusTabView(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            var copyMenuExpanded by remember { mutableStateOf(false) }
+            OutlinedButton(
+                onClick = { copyMenuExpanded = true },
+                modifier = Modifier.weight(1f).premiumTouchEffect(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+            ) {
+                Text("${trEn("Hedef gün", "Target day")}: ${days[copyTargetDay - 1]}", maxLines = 1)
+            }
+            DropdownMenu(
+                expanded = copyMenuExpanded,
+                onDismissRequest = { copyMenuExpanded = false }
+            ) {
+                (1..7).forEach { day ->
+                    DropdownMenuItem(
+                        text = { Text(days[day - 1]) },
+                        onClick = {
+                            copyTargetDay = day
+                            copyMenuExpanded = false
+                        }
+                    )
+                }
+            }
+            Button(
+                onClick = { viewModel.copyDayPlan(uiState.selectedDay, copyTargetDay) },
+                enabled = copyTargetDay != uiState.selectedDay,
+                modifier = Modifier.premiumTouchEffect(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.18f))
+            ) {
+                Text(trEn("Günü Kopyala", "Copy Day"), color = Color.White)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         // Lessons List
         val lessons = uiState.bellSchedules.filter { !it.isBreak }
         if (lessons.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Bu gün için bir zil programı tanımlanmamış.", color = Color.White.copy(alpha = 0.6f))
+                Text(trEn("Bu gün için bir zil programı tanımlanmamış.", "No schedule defined for this day."), color = Color.White.copy(alpha = 0.6f))
             }
         } else {
             LazyColumn(
@@ -189,6 +236,8 @@ fun SyllabusRow(
     onSave: (Long?, Long?) -> Unit,
     onNoteClick: () -> Unit
 ) {
+    val appLanguage = LocalAppLanguage.current
+    fun trEn(tr: String, en: String): String = if (appLanguage == AppLanguage.EN) en else tr
     GlassCard(
         modifier = Modifier
             .fillMaxWidth()
@@ -220,7 +269,7 @@ fun SyllabusRow(
             ) {
                 // Class Selector
                 SyllabusDropDown(
-                    label = "Sınıf",
+                    label = trEn("Sınıf", "Class"),
                     items = classes,
                     selectedId = entry?.classId,
                     onSelected = { onSave(it, entry?.subjectId) },
@@ -230,7 +279,7 @@ fun SyllabusRow(
                 
                 // Subject Selector
                 SyllabusDropDown(
-                    label = "Ders",
+                    label = trEn("Ders", "Subject"),
                     items = subjects,
                     selectedId = entry?.subjectId,
                     onSelected = { onSave(entry?.classId, it) },
@@ -289,7 +338,7 @@ fun <T> SyllabusDropDown(
             modifier = Modifier.background(MaterialTheme.colorScheme.surface)
         ) {
             DropdownMenuItem(
-                text = { Text("Seçilmedi") },
+                text = { Text(if (LocalAppLanguage.current == AppLanguage.EN) "Not selected" else "Seçilmedi") },
                 onClick = {
                     onSelected(null)
                     expanded = false
@@ -312,3 +361,5 @@ fun <T> SyllabusDropDown(
         }
     }
 }
+
+

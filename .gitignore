@@ -1,6 +1,8 @@
 *.iml
 .gradle
 /local.properties
+/.vscode
+/.idea
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
@@ -14,3 +16,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+Screenshot_*.jpg
+_latest_phone.png
+_local_dump.txt

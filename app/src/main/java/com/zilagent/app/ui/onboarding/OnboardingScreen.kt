@@ -1,66 +1,122 @@
 package com.zilagent.app.ui.onboarding
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.zilagent.app.ui.components.GlassCard
-import com.airbnb.lottie.compose.*
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.rememberLottieComposition
 import com.zilagent.app.R
+import com.zilagent.app.ui.components.AppLanguage
+import com.zilagent.app.ui.components.GlassCard
+import com.zilagent.app.ui.components.ZilAgentBackground
+import com.zilagent.app.ui.components.premiumTouchEffect
+import com.zilagent.app.widget.WidgetStore
 
 data class OnboardingStep(
-    val title: String,
-    val description: String,
-    val lottieRes: Int? = null
+    val titleTr: String,
+    val titleEn: String,
+    val descriptionTr: String,
+    val descriptionEn: String,
+    val lottieRes: Int? = null,
 )
 
 @Composable
 fun OnboardingScreen(onFinish: () -> Unit) {
+    val context = LocalContext.current
     var currentStep by remember { mutableStateOf(0) }
-    
+    var language by remember { mutableStateOf(AppLanguage.fromCode(WidgetStore.getAppLanguage(context))) }
+    fun trEn(tr: String, en: String): String = if (language == AppLanguage.EN) en else tr
+
     val steps = listOf(
         OnboardingStep(
-            "Hoş Geldiniz!",
-            "ZilAgent ile okul programınızı dijitalleştirin. Saniyeler bazında hassasiyetle derslerinizi takip edin.",
-            R.raw.empty_animation // Using existing placeholder
+            titleTr = "Hoş Geldiniz!",
+            titleEn = "Welcome!",
+            descriptionTr = "ZilAgent ile okul programınızı dijitalleştirin. Saniye bazında ders takibi yapın.",
+            descriptionEn = "Digitize your school day with ZilAgent. Track every lesson down to the second.",
+            lottieRes = R.raw.empty_animation,
         ),
         OnboardingStep(
-            "Akıllı Profiller",
-            "Sabah, Öğle veya Gece programlarınız arasında tek tıkla geçiş yapın. Her profil için ayrı zil vakitleri tanımlayın.",
+            titleTr = "Akıllı Profiller",
+            titleEn = "Smart Profiles",
+            descriptionTr = "Farklı programlar arasında tek dokunuşla geçiş yapın.",
+            descriptionEn = "Switch between multiple schedules with a single tap.",
         ),
         OnboardingStep(
-            "Modern Widget'lar",
-            "Uygulamayı açmadan her şeyi ana ekranınızdan görün. 3 farklı widget tasarımı ile stilinizi yansıtın.",
+            titleTr = "Modern Widget'lar",
+            titleEn = "Modern Widgets",
+            descriptionTr = "Ana ekrandan doğrudan geri sayım ve ders akışını takip edin.",
+            descriptionEn = "Follow countdown and daily flow directly from your home screen.",
         ),
         OnboardingStep(
-            "Sınav Modu & Bildirimler",
-            "Sınav esnasında kalan süreyi görün, zil çalmada 1 dakika kala bildirim alın.",
-        )
+            titleTr = "Sınav Modu",
+            titleEn = "Exam Mode",
+            descriptionTr = "Büyük ekran geri sayım ile sınıfın her yerinden görünür süre takibi.",
+            descriptionEn = "Large full-screen countdown visible from anywhere in the classroom.",
+        ),
     )
 
-    com.zilagent.app.ui.components.ZilAgentBackground {
+    ZilAgentBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Center,
         ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                FilterChip(
+                    selected = language == AppLanguage.TR,
+                    onClick = {
+                        language = AppLanguage.TR
+                        WidgetStore.setAppLanguage(context, "tr")
+                    },
+                    label = { Text("🇹🇷 Türkçe") },
+                )
+                FilterChip(
+                    selected = language == AppLanguage.EN,
+                    onClick = {
+                        language = AppLanguage.EN
+                        WidgetStore.setAppLanguage(context, "en")
+                    },
+                    label = { Text("🇬🇧 English") },
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
             val step = steps[currentStep]
-            
-            // Lottie or Icon placeholder
             Box(modifier = Modifier.height(250.dp), contentAlignment = Alignment.Center) {
                 if (step.lottieRes != null) {
                     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(step.lottieRes))
@@ -70,13 +126,13 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                         modifier = Modifier
                             .size(120.dp)
                             .background(Color.White.copy(alpha = 0.2f), CircleShape),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = (currentStep + 1).toString(),
                             fontSize = 48.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
+                            color = Color.White,
                         )
                     }
                 }
@@ -87,28 +143,27 @@ fun OnboardingScreen(onFinish: () -> Unit) {
             GlassCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
-                        text = step.title,
+                        text = trEn(step.titleTr, step.titleEn),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = step.description,
+                        text = trEn(step.descriptionTr, step.descriptionEn),
                         style = MaterialTheme.typography.bodyLarge,
                         color = Color.White.copy(alpha = 0.9f),
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            // Progress Dots
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 steps.indices.forEach { index ->
                     Box(
@@ -116,12 +171,12 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                             .size(if (index == currentStep) 12.dp else 8.dp)
                             .background(
                                 color = if (index == currentStep) Color.White else Color.White.copy(alpha = 0.4f),
-                                shape = CircleShape
-                            )
+                                shape = CircleShape,
+                            ),
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(32.dp))
 
             Button(
@@ -134,18 +189,19 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(56.dp)
+                    .premiumTouchEffect(),
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.3f)),
-                shape = MaterialTheme.shapes.medium
+                shape = MaterialTheme.shapes.medium,
             ) {
                 Text(
-                    text = if (currentStep == steps.size - 1) "BAŞLA" else "SONRAKİ",
+                    text = if (currentStep == steps.size - 1) trEn("BAŞLA", "START") else trEn("SONRAKİ", "NEXT"),
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = Color.White,
                 )
                 if (currentStep < steps.size - 1) {
                     Spacer(modifier = Modifier.width(8.dp))
-                    Icon(Icons.Default.ArrowForward, contentDescription = null, tint = Color.White)
+                    androidx.compose.material3.Icon(Icons.Default.ArrowForward, contentDescription = null, tint = Color.White)
                 }
             }
         }

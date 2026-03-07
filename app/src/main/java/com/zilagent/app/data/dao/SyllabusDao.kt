@@ -48,8 +48,14 @@ interface SyllabusDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSyllabusEntry(entry: SyllabusEntry)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSyllabusEntries(entries: List<SyllabusEntry>)
+
     @Query("DELETE FROM syllabus_entries WHERE profileId = :profileId AND dayOfWeek = :dayOfWeek AND lessonOrder = :lessonOrder")
     suspend fun deleteSyllabusEntry(profileId: Long, dayOfWeek: Int, lessonOrder: Int)
+
+    @Query("DELETE FROM syllabus_entries WHERE profileId = :profileId AND dayOfWeek = :dayOfWeek")
+    suspend fun deleteSyllabusForDay(profileId: Long, dayOfWeek: Int)
 
     @Transaction
     @Query("""

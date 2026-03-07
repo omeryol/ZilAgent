@@ -1,24 +1,45 @@
 package com.zilagent.app.ui.profiles
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zilagent.app.data.entity.Profile
+import com.zilagent.app.ui.components.AppLanguage
 import com.zilagent.app.ui.components.GlassCard
 import com.zilagent.app.ui.components.GradientIcon
 import com.zilagent.app.ui.components.IconGradients
+import com.zilagent.app.ui.components.LocalAppLanguage
 import com.zilagent.app.ui.components.ZilAgentBackground
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -26,15 +47,17 @@ import com.zilagent.app.ui.components.ZilAgentBackground
 fun ProfilesScreen(
     onNavigateBack: () -> Unit,
     onNavigateToEdit: (Long) -> Unit,
-    viewModel: ProfilesViewModel = viewModel(factory = ProfilesViewModel.Factory)
+    viewModel: ProfilesViewModel = viewModel(factory = ProfilesViewModel.Factory),
 ) {
+    val appLanguage = LocalAppLanguage.current
+    fun trEn(tr: String, en: String): String = if (appLanguage == AppLanguage.EN) en else tr
     val uiState by viewModel.uiState.collectAsState()
     val haptic = LocalHapticFeedback.current
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Kayıtlı Profiller") },
+                title = { Text(trEn("Kayıtlı Profiller", "Saved Profiles")) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         GradientIcon(Icons.Default.ArrowBack, IconGradients.Purple, size = 32.dp, iconSize = 18.dp)
@@ -42,8 +65,8 @@ fun ProfilesScreen(
                 },
                 colors = TopAppBarDefaults.smallTopAppBarColors(
                     containerColor = Color.Transparent,
-                    titleContentColor = Color.White
-                )
+                    titleContentColor = Color.White,
+                ),
             )
         },
         containerColor = Color.Transparent,
@@ -51,11 +74,11 @@ fun ProfilesScreen(
             FloatingActionButton(
                 onClick = { onNavigateToEdit(-1L) },
                 containerColor = Color.Transparent,
-                elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp)
+                elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp),
             ) {
                 GradientIcon(Icons.Default.Add, IconGradients.Blue, size = 56.dp, iconSize = 24.dp)
             }
-        }
+        },
     ) { paddingValues ->
         ZilAgentBackground(modifier = Modifier.padding(paddingValues)) {
             if (uiState.isLoading) {
@@ -65,22 +88,21 @@ fun ProfilesScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(uiState.profiles) { profile ->
                         ProfileItem(
                             profile = profile,
-                            onSelect = { 
+                            activeLabel = trEn("Şu an aktif", "Currently active"),
+                            onSelect = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                viewModel.selectProfile(profile) 
+                                viewModel.selectProfile(profile)
                             },
-                            onEdit = {
-                                onNavigateToEdit(profile.id)
-                            },
-                            onDelete = { 
+                            onEdit = { onNavigateToEdit(profile.id) },
+                            onDelete = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                viewModel.deleteProfile(profile) 
-                            }
+                                viewModel.deleteProfile(profile)
+                            },
                         )
                     }
                 }
@@ -92,31 +114,32 @@ fun ProfilesScreen(
 @Composable
 fun ProfileItem(
     profile: Profile,
+    activeLabel: String,
     onSelect: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
 ) {
     GlassCard(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onSelect() }
+            .clickable { onSelect() },
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = profile.name,
                     style = MaterialTheme.typography.titleLarge,
-                    color = if (profile.isActive) MaterialTheme.colorScheme.primary else Color.White
+                    color = if (profile.isActive) MaterialTheme.colorScheme.primary else Color.White,
                 )
                 if (profile.isActive) {
                     Text(
-                        text = "Şu an aktif",
+                        text = activeLabel,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }

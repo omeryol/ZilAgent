@@ -1,4 +1,4 @@
-package com.zilagent.app.manager
+﻿package com.zilagent.app.manager
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -16,6 +16,9 @@ class BellManager(private val context: Context) {
 
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
+    private fun t(tr: String, en: String): String = if (WidgetStore.getAppLanguage(context) == "en") en else tr
+    fun getAppLanguage(): String = WidgetStore.getAppLanguage(context)
+
     fun scheduleDailyAlarms(schedules: List<BellSchedule>) {
         if (isHolidayToday()) {
             refreshWidgetState()
@@ -24,30 +27,22 @@ class BellManager(private val context: Context) {
         val now = LocalTime.now()
         val nowMinutes = now.hour * 60 + now.minute
 
-        // Cancel all previous alarms for this package
-        // In a real app, you'd use specific IDs. Here we use 10*id + offset.
-        // For simplicity, we assume previous ones are overwritten if same request code is used.
-
         schedules.forEach { schedule ->
-            // Notify 1 minute before lesson STARTS
             if (schedule.notifyAtStart && (schedule.startTime - 1) > nowMinutes) {
-                scheduleAlarm(schedule.startTime - 1, "${schedule.name} Başlamasına 1 Dakika Kaldı", schedule.id.toInt() * 10 + 1, false, !schedule.isBreak)
+                scheduleAlarm(schedule.startTime - 1, "${schedule.name} ${t("Başlamasına 1 Dakika Kaldı", "starts in 1 minute")}", schedule.id.toInt() * 10 + 1, false, !schedule.isBreak)
             }
-            // Notify 1 minute before lesson ENDS
             if (schedule.notifyAtEnd && (schedule.endTime - 1) > nowMinutes) {
-                scheduleAlarm(schedule.endTime - 1, "${schedule.name} Bitmesine 1 Dakika Kaldı", schedule.id.toInt() * 10 + 2, false, null)
+                scheduleAlarm(schedule.endTime - 1, "${schedule.name} ${t("Bitmesine 1 Dakika Kaldı", "ends in 1 minute")}", schedule.id.toInt() * 10 + 2, false, null)
             }
-            // Update widget EXACTLY at lesson START and END
             if (schedule.startTime > nowMinutes) {
-                 scheduleAlarm(schedule.startTime, "Widget Update (Start)", schedule.id.toInt() * 10 + 4, true, null)
+                scheduleAlarm(schedule.startTime, "Widget Update (Start)", schedule.id.toInt() * 10 + 4, true, null)
             }
             if (schedule.endTime > nowMinutes) {
                 scheduleAlarm(schedule.endTime, "Widget Update (End)", schedule.id.toInt() * 10 + 3, true, if (!schedule.isBreak) false else null)
             }
         }
-        
+
         refreshWidgetState()
-        // We still keep the heartbeat for extra safety, but rely mainly on event-based updates
         scheduleMinuteTick()
     }
 
@@ -61,8 +56,7 @@ class BellManager(private val context: Context) {
                 scheduleCustomAlarm(customTime)
             }
         }
-        
-        // Trigger a full recalculation via Broadcast to ensure DB data is synced to WidgetStore
+
         triggerWidgetRefresh()
     }
 
@@ -76,7 +70,7 @@ class BellManager(private val context: Context) {
     fun scheduleMinuteTick() {
         val calendar = Calendar.getInstance().apply {
             add(Calendar.MINUTE, 1)
-            set(Calendar.SECOND, 1) // 1 second offset to avoid race conditions
+            set(Calendar.SECOND, 1)
             set(Calendar.MILLISECOND, 0)
         }
         val intent = Intent(context, BellReceiver::class.java).apply {
@@ -86,7 +80,9 @@ class BellManager(private val context: Context) {
         val pendingIntent = PendingIntent.getBroadcast(context, 9991, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         try {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun scheduleCustomAlarm(minutesFromMidnight: Int) {
@@ -97,13 +93,15 @@ class BellManager(private val context: Context) {
             set(Calendar.MILLISECOND, 0)
         }
         val intent = Intent(context, BellReceiver::class.java).apply {
-            putExtra("BELL_NAME", "Özel Sayaç")
+            putExtra("BELL_NAME", t("Özel Sayaç", "Custom Timer"))
             putExtra("IS_CUSTOM_MODE_FINISH", true)
         }
         val pendingIntent = PendingIntent.getBroadcast(context, 10011, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         try {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun scheduleAlarm(minutesFromMidnight: Int, title: String, requestCode: Int, isWidgetUpdate: Boolean, enableDnd: Boolean?) {
@@ -122,21 +120,20 @@ class BellManager(private val context: Context) {
         val pendingIntent = PendingIntent.getBroadcast(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         try {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     fun isHolidayToday(): Boolean {
-        // 1. Weekly Check
         val mask = WidgetStore.getWorkingDays(context)
-        val dayOfWeek = LocalDate.now().dayOfWeek.value // 1 (Mon) to 7 (Sun)
+        val dayOfWeek = LocalDate.now().dayOfWeek.value
         if (mask.getOrNull(dayOfWeek - 1) == '0') return true
 
-        // 2. Database Check (Special Date Ranges)
         val today = LocalDate.now()
         return try {
             val db = AppDatabase.getDatabase(context)
-            // Note: runBlocking is used here for simplicity in a non-suspend context
-            kotlinx.coroutines.runBlocking { 
+            kotlinx.coroutines.runBlocking {
                 db.holidayDao().getAllHolidaysSync().any { holiday ->
                     val start = LocalDate.parse(holiday.startDate)
                     val end = LocalDate.parse(holiday.endDate)

@@ -1,8 +1,6 @@
-package com.zilagent.app.ui.settings
+﻿package com.zilagent.app.ui.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,18 +18,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.zilagent.app.ui.components.AppLanguage
 import com.zilagent.app.ui.components.GlassCard
 import com.zilagent.app.ui.components.GradientIcon
 import com.zilagent.app.ui.components.IconGradients
-import com.zilagent.app.ui.theme.ThemePalette
-import com.zilagent.app.widget.WidgetStore
+import com.zilagent.app.ui.components.LocalAppLanguage
+import com.zilagent.app.ui.components.premiumClickable
+import com.zilagent.app.ui.components.premiumTouchEffect
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,12 +44,10 @@ fun CreateScheduleScreen(
         )
     )
 ) {
+    val appLanguage = LocalAppLanguage.current
+    fun trEn(tr: String, en: String): String = if (appLanguage == AppLanguage.EN) en else tr
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val themeColorName = remember { WidgetStore.getThemeColorName(context) }
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-    val themeMode = remember { WidgetStore.getThemeMode(context) }
-
     LaunchedEffect(uiState.saveComplete) {
         if (uiState.saveComplete) {
             onSaveComplete()
@@ -61,7 +58,7 @@ fun CreateScheduleScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (profileId == -1L) "Yeni Program" else "Programı Düzenle") },
+                title = { Text(if (profileId == -1L) trEn("Yeni Program", "New Schedule") else trEn("Programı Düzenle", "Edit Schedule")) },
                 navigationIcon = {
                     IconButton(onClick = onSaveComplete) {
                         GradientIcon(Icons.Default.ArrowBack, IconGradients.Purple, size = 32.dp, iconSize = 18.dp)
@@ -72,7 +69,6 @@ fun CreateScheduleScreen(
         },
         containerColor = Color.Transparent
     ) { paddingValues ->
-        ThemePalette.getPalette("Lavanta") // Trigger import if needed, but we use ZilAgentBackground
         com.zilagent.app.ui.components.ZilAgentBackground(
             modifier = Modifier.padding(paddingValues)
         ) {
@@ -86,7 +82,7 @@ fun CreateScheduleScreen(
                 // Active Profile Header
                 GlassCard(modifier = Modifier.fillMaxWidth()) {
                      Column(modifier = Modifier.padding(16.dp)) {
-                         Text("Aktif Profil", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+                         Text(trEn("Aktif Profil", "Active Profile"), style = MaterialTheme.typography.labelMedium, color = Color.Gray)
                          Text(uiState.profileName, style = MaterialTheme.typography.headlineSmall, color = Color.White)
                      }
                 }
@@ -95,13 +91,13 @@ fun CreateScheduleScreen(
                 // General Settings Card
                 GlassCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Genel Program", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                        Text(trEn("Genel Program", "General Schedule"), style = MaterialTheme.typography.titleMedium, color = Color.White)
                         Spacer(modifier = Modifier.height(16.dp))
                         
-                        Text("Uygulanacak Günler", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.7f))
+                        Text(trEn("Uygulanacak Günler", "Apply Days"), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.7f))
                         Spacer(modifier = Modifier.height(8.dp))
                         
-                        val days = listOf("Tümü", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
+                        val days = if (appLanguage == AppLanguage.EN) listOf("All", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun") else listOf("Tümü", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
                         Row(
                             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
                         ) {
@@ -130,7 +126,7 @@ fun CreateScheduleScreen(
                         OutlinedTextField(
                             value = uiState.profileName,
                             onValueChange = viewModel::onProfileNameChange,
-                            label = { Text("Profil Adı (Örn: Normal)") },
+                            label = { Text(trEn("Profil Adı (Örn: Normal)", "Profile Name (e.g. Normal)")) },
                             modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -138,7 +134,7 @@ fun CreateScheduleScreen(
                         OutlinedTextField(
                             value = uiState.morningAssemblyDuration,
                             onValueChange = viewModel::onMorningAssemblyDurationChange,
-                            label = { Text("Sabah Toplanma Süresi (dk)") },
+                            label = { Text(trEn("Sabah Toplanma Süresi (dk)", "Morning Assembly (min)")) },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
@@ -147,7 +143,7 @@ fun CreateScheduleScreen(
                         OutlinedTextField(
                             value = uiState.preBellDuration,
                             onValueChange = viewModel::onPreBellDurationChange,
-                            label = { Text("Ders Öncesi Hazırlık Zili (dk)") },
+                            label = { Text(trEn("Ders Öncesi Hazırlık Zili (dk)", "Pre-lesson Prep Bell (min)")) },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
@@ -156,10 +152,10 @@ fun CreateScheduleScreen(
                         OutlinedTextField(
                             value = uiState.startTime,
                             onValueChange = { }, 
-                            label = { Text("İlk Ders Saati (HH:MM)") },
+                            label = { Text(trEn("İlk Ders Saati (HH:MM)", "First Lesson Time (HH:MM)")) },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
+                                .premiumClickable {
                                     com.zilagent.app.ui.components.launchTimePicker(context, uiState.startTime) { selectedTime ->
                                         viewModel.onStartTimeChange(selectedTime)
                                     }
@@ -176,7 +172,7 @@ fun CreateScheduleScreen(
                         OutlinedTextField(
                             value = uiState.lessonDuration,
                             onValueChange = viewModel::onLessonDurationChange,
-                            label = { Text("Ders Süresi (dk)") },
+                            label = { Text(trEn("Ders Süresi (dk)", "Lesson Duration (min)")) },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
@@ -185,7 +181,25 @@ fun CreateScheduleScreen(
                         OutlinedTextField(
                             value = uiState.breakDuration,
                             onValueChange = viewModel::onBreakDurationChange,
-                            label = { Text("Teneffüs Süresi (dk)") },
+                            label = { Text(trEn("Teneffüs Süresi (dk)", "Break Duration (min)")) },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        OutlinedTextField(
+                            value = uiState.firstBreakDuration,
+                            onValueChange = viewModel::onFirstBreakDurationChange,
+                            label = { Text(trEn("1. teneffüs (opsiyonel dk)", "1st break (optional min)")) },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        OutlinedTextField(
+                            value = uiState.secondBreakDuration,
+                            onValueChange = viewModel::onSecondBreakDurationChange,
+                            label = { Text(trEn("2. teneffüs (opsiyonel dk)", "2nd break (optional min)")) },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
@@ -194,19 +208,19 @@ fun CreateScheduleScreen(
                         OutlinedTextField(
                             value = uiState.lessonCount,
                             onValueChange = viewModel::onLessonCountChange,
-                            label = { Text("Ders Sayısı") },
+                            label = { Text(trEn("Ders Sayısı", "Lesson Count")) },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         
-                        Text("Öğle Arası Ayarları", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                        Text(trEn("Öğle Arası Ayarları", "Lunch Break Settings"), style = MaterialTheme.typography.titleMedium, color = Color.White)
                         Spacer(modifier = Modifier.height(8.dp))
 
                         OutlinedTextField(
                             value = uiState.lunchBreakAfter,
                             onValueChange = viewModel::onLunchBreakAfterChange,
-                            label = { Text("Kaçıncı Dersten Sonra?") },
+                            label = { Text(trEn("Kaçıncı Dersten Sonra?", "After Which Lesson?")) },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
@@ -215,7 +229,7 @@ fun CreateScheduleScreen(
                         OutlinedTextField(
                             value = uiState.lunchBreakDuration,
                             onValueChange = viewModel::onLunchBreakDurationChange,
-                            label = { Text("Öğle Arası Süresi (dk)") },
+                            label = { Text(trEn("Öğle Arası Süresi (dk)", "Lunch Break Duration (min)")) },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
@@ -225,7 +239,7 @@ fun CreateScheduleScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { viewModel.onCountdownColorEnabledChange(!uiState.countdownColorEnabled) },
+                                .premiumClickable { viewModel.onCountdownColorEnabledChange(!uiState.countdownColorEnabled) },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Checkbox(
@@ -233,7 +247,23 @@ fun CreateScheduleScreen(
                                 onCheckedChange = { viewModel.onCountdownColorEnabledChange(it) }
                             )
                             Text(
-                                text = "Geri Sayım Renklensin (Yeşil -> Kırmızı)",
+                                text = trEn("Geri Sayım Renklensin (Yeşil -> Kırmızı)", "Dynamic Countdown Color (Green -> Red)"),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White
+                            )
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .premiumClickable { viewModel.onLessonStartNotifyEnabledChange(!uiState.lessonStartNotifyEnabled) },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = uiState.lessonStartNotifyEnabled,
+                                onCheckedChange = { viewModel.onLessonStartNotifyEnabledChange(it) }
+                            )
+                            Text(
+                                text = trEn("Ders başlangıcında bildirim gönder", "Notify at lesson start"),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color.White
                             )
@@ -248,7 +278,8 @@ fun CreateScheduleScreen(
                     enabled = !uiState.isSaving,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp),
+                        .height(50.dp)
+                        .premiumTouchEffect(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.White.copy(alpha = 0.2f),
                         contentColor = Color.White
@@ -257,7 +288,7 @@ fun CreateScheduleScreen(
                     if (uiState.isSaving) {
                         CircularProgressIndicator(modifier = Modifier.height(24.dp), color = Color.White)
                     } else {
-                        Text("Oluştur ve Kaydet", fontWeight = FontWeight.Bold)
+                        Text(trEn("Oluştur ve Kaydet", "Create and Save"), fontWeight = FontWeight.Bold)
                     }
                 }
                 
@@ -266,3 +297,4 @@ fun CreateScheduleScreen(
         }
     }
 }
+

@@ -67,28 +67,28 @@ fun SubjectManagementScreen(
         ZilAgentBackground(modifier = Modifier.padding(padding)) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 items(uiState.subjects) { subject ->
                     GlassCard(modifier = Modifier.fillMaxWidth()) {
                         Row(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(subject.name, style = MaterialTheme.typography.titleMedium, color = Color.White)
+                                Text(subject.name, style = MaterialTheme.typography.titleSmall, color = Color.White)
                                 if (subject.isSystem) {
                                     Text("Sistem", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.5f))
                                 }
                             }
                             Row {
                                 IconButton(onClick = { editingSubject = subject }) {
-                                    GradientIcon(Icons.Default.Edit, IconGradients.Purple, size = 32.dp, iconSize = 18.dp)
+                                    GradientIcon(Icons.Default.Edit, IconGradients.Purple, size = 28.dp, iconSize = 16.dp)
                                 }
                                 if (!subject.isSystem) {
                                     IconButton(onClick = { viewModel.deleteSubject(subject) }) {
-                                        GradientIcon(icon = Icons.Default.Delete, gradient = IconGradients.Lava, size = 32.dp, iconSize = 18.dp)
+                                        GradientIcon(icon = Icons.Default.Delete, gradient = IconGradients.Lava, size = 28.dp, iconSize = 16.dp)
                                     }
                                 }
                             }

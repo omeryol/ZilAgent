@@ -1,7 +1,8 @@
 ﻿package com.zilagent.app.ui.dashboard
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -23,9 +25,11 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -50,7 +54,6 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -68,6 +71,8 @@ import com.zilagent.app.ui.components.LocalAppLanguage
 import com.zilagent.app.ui.components.UserManualDialog
 import com.zilagent.app.ui.components.ZilAgentBackground
 import com.zilagent.app.ui.components.premiumClickable
+import com.zilagent.app.ui.components.premiumTouchEffect
+import com.zilagent.app.ui.theme.ThemePalette
 import com.zilagent.app.util.TimeUtils
 import com.zilagent.app.widget.WidgetStore
 import kotlinx.coroutines.launch
@@ -76,19 +81,19 @@ import kotlinx.coroutines.launch
 @Composable
 fun DashboardScreen(
     onNavigateToSettings: () -> Unit,
-    onNavigateToCreate: () -> Unit,
+    onNavigateToCreate: (Long) -> Unit,
     onNavigateToExamMode: () -> Unit,
     onNavigateToProfiles: () -> Unit,
-    onNavigateToClasses: () -> Unit,
-    onNavigateToSubjects: () -> Unit,
     viewModel: DashboardViewModel = viewModel(factory = DashboardViewModel.Factory),
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val appLanguage = LocalAppLanguage.current
+    val context = LocalContext.current
     fun trEn(tr: String, en: String): String = if (appLanguage == AppLanguage.EN) en else tr
     val onSurface = MaterialTheme.colorScheme.onSurface
     val secondary = onSurface.copy(alpha = 0.72f)
-
+    val themePair = ThemePalette.getPalette(WidgetStore.getThemeColorName(context))
+    val dashboardAccent = themePair.first
     val editingItem = remember { mutableStateOf<BellSchedule?>(null) }
     val todayListState = rememberLazyListState()
     var selectedTabIndex by remember { mutableStateOf(0) }
@@ -167,7 +172,7 @@ fun DashboardScreen(
                     if (selectedTabIndex < tabPositions.size) {
                         TabRowDefaults.Indicator(
                             modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                            color = onSurface,
+                            color = dashboardAccent,
                         )
                     }
                 },
@@ -194,13 +199,16 @@ fun DashboardScreen(
             ) { page ->
                 if (page == 0) {
                     Column {
-                        TodayContent(uiState, editingItem, todayListState, onNavigateToCreate)
+                        TodayContent(
+                            uiState = uiState,
+                            editingItem = editingItem,
+                            listState = todayListState,
+                            onNavigateToCreate = { onNavigateToCreate(uiState.currentProfile?.id ?: -1L) },
+                            hasProfile = uiState.currentProfile != null
+                        )
                     }
                 } else {
-                    com.zilagent.app.ui.syllabus.SyllabusTabView(
-                        onNavigateToClasses = onNavigateToClasses,
-                        onNavigateToSubjects = onNavigateToSubjects,
-                    )
+                    com.zilagent.app.ui.syllabus.SyllabusTabView()
                 }
             }
         }
@@ -216,25 +224,6 @@ fun DashboardScreen(
             )
         }
 
-        if (uiState.currentProfile == null) {
-            FloatingActionButton(
-                onClick = onNavigateToCreate,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 24.dp),
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    GradientIcon(Icons.Default.Add, IconGradients.Blue, size = 30.dp, iconSize = 16.dp)
-                    Text(trEn("Program Ekle", "Add Schedule"), fontWeight = FontWeight.Bold)
-                }
-            }
-        }
     }
 }
 
@@ -244,6 +233,7 @@ fun ColumnScope.TodayContent(
     editingItem: MutableState<BellSchedule?>,
     listState: androidx.compose.foundation.lazy.LazyListState,
     onNavigateToCreate: () -> Unit,
+    hasProfile: Boolean,
 ) {
     val context = LocalContext.current
     val appLanguage = LocalAppLanguage.current
@@ -251,11 +241,12 @@ fun ColumnScope.TodayContent(
     val onSurface = MaterialTheme.colorScheme.onSurface
     val secondary = onSurface.copy(alpha = 0.7f)
     val isLightTheme = MaterialTheme.colorScheme.background.luminance() > 0.5f
+    val themePair = ThemePalette.getPalette(WidgetStore.getThemeColorName(context))
+    val dashboardAccent = themePair.first
 
     val motionEnabled = WidgetStore.isDashboardMotionEnabled(context)
     val motionStrength = WidgetStore.getDashboardMotionStrength(context) / 100f
     val countdownTextSize = WidgetStore.getDashboardCountdownTextSize(context)
-    val borderWidth = WidgetStore.getDashboardCardBorderWidth(context).dp
     val scrollPx = (listState.firstVisibleItemIndex * 240 + listState.firstVisibleItemScrollOffset).toFloat()
     val collapse = (scrollPx / 460f).coerceIn(0f, 1f)
     val headerScale = if (motionEnabled) (1f - collapse * (0.44f * motionStrength)).coerceIn(0.74f, 1f) else 1f
@@ -309,32 +300,84 @@ fun ColumnScope.TodayContent(
             val countdownColor = if (isDynamicColor && uiState.secondsRemaining > 0) {
                 Color(TimeUtils.getCountdownColor(uiState.secondsRemaining))
             } else {
-                onSurface
+                dashboardAccent
             }
 
-            Text(
-                text = TimeUtils.formatCountdown(uiState.secondsRemaining),
-                style = MaterialTheme.typography.displayMedium,
-                fontSize = countdownTextSize.sp,
-                fontWeight = FontWeight.Bold,
-                color = countdownColor,
-                fontFamily = FontFamily.Monospace,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            uiState.nextBell?.let {
+            if (uiState.secondsRemaining > 0) {
                 Text(
-                    text = "${trEn("Bitiş", "Ends")}: ${TimeUtils.minutesToTime(it.endTime)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = secondary,
+                    text = TimeUtils.formatCountdown(uiState.secondsRemaining),
+                    style = MaterialTheme.typography.displayMedium,
+                    fontSize = countdownTextSize.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = countdownColor,
+                    fontFamily = FontFamily.Monospace,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
+                uiState.nextBell?.let {
+                    Text(
+                        text = "${trEn("Bitiş", "Ends")}: ${TimeUtils.minutesToTime(it.endTime)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = secondary,
+                    )
+                }
+                // Progress bar: only when we are IN an active event (activeItemId != null)
+                if (uiState.activeItemId != null) {
+                    uiState.nextBell?.let { activeEvent ->
+                        val totalDurationSec = (activeEvent.endTime - activeEvent.startTime) * 60f
+                        val rawProgress = if (totalDurationSec > 0f) {
+                            1f - (uiState.secondsRemaining / totalDurationSec)
+                        } else 0f
+                        val animatedProgress by animateFloatAsState(
+                            targetValue = rawProgress.coerceIn(0f, 1f),
+                            animationSpec = tween(durationMillis = 800),
+                            label = "lesson_progress",
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        LinearProgressIndicator(
+                            progress = animatedProgress,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp),
+                            color = countdownColor,
+                            trackColor = countdownColor.copy(alpha = 0.18f),
+                        )
+                    }
+                }
             }
         }
     }
 
     Spacer(modifier = Modifier.height(16.dp))
 
+    TodaySummaryCard(
+        uiState = uiState,
+        trEn = ::trEn,
+    )
+
+    Spacer(modifier = Modifier.height(16.dp))
+
     if (uiState.schedule.isEmpty()) {
+        val showCreateCta = !hasProfile || !uiState.hasAnyScheduleForProfile
+        val emptyTitle = when {
+            !hasProfile -> trEn("Henüz bir profil oluşturulmamış", "No profile created yet")
+            uiState.hasAnyScheduleForProfile -> trEn("Bugün ders yok", "No lessons today")
+            else -> trEn("Bu profil için henüz ders programı yok", "No schedule for this profile yet")
+        }
+        val emptyBody = when {
+            !hasProfile -> trEn(
+                "Profil ve program oluşturmak için aşağıdaki düğmeyi kullan.",
+                "Use the button below to create a profile and schedule.",
+            )
+            uiState.hasAnyScheduleForProfile -> trEn(
+                "Seçili profilde bugün için tanımlı ders bulunmuyor.",
+                "There are no lessons defined for today in the selected profile.",
+            )
+            else -> trEn(
+                "Bu profile ders programı eklemek için aşağıdaki düğmeyi kullan.",
+                "Use the button below to add a schedule to this profile.",
+            )
+        }
         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.empty_animation))
@@ -345,17 +388,38 @@ fun ColumnScope.TodayContent(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    trEn("Henüz bir program eklenmemiş", "No schedule yet"),
+                    text = emptyTitle,
                     style = MaterialTheme.typography.bodyLarge,
                     color = secondary,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    trEn("İlk kurulum için alttaki + butonuna dokun", "Tap the + button below for first setup"),
+                    text = emptyBody,
                     style = MaterialTheme.typography.bodyMedium,
                     color = secondary,
-                    modifier = Modifier.premiumClickable { onNavigateToCreate() },
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 24.dp),
                 )
+                if (showCreateCta) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = onNavigateToCreate,
+                        modifier = Modifier.premiumTouchEffect(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = dashboardAccent.copy(alpha = if (isLightTheme) 0.18f else 0.24f),
+                            contentColor = onSurface,
+                        ),
+                    ) {
+                        Text(
+                            text = if (hasProfile) {
+                                trEn("Ders programı ekle", "Add schedule")
+                            } else {
+                                trEn("Profil ve program oluştur", "Create profile and schedule")
+                            },
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
             }
         }
     } else {
@@ -377,16 +441,37 @@ fun ColumnScope.TodayContent(
                 val itemCenter = itemInfo?.let { it.offset + (it.size / 2f) } ?: viewportCenter
                 val viewportSize = (viewportEnd - viewportStart).toFloat().let { if (it <= 0f) 1f else it }
                 val normalized = ((itemCenter - viewportCenter) / viewportSize).coerceIn(-0.5f, 0.5f)
-                val effectAmp = if (motionEnabled) (0.62f * motionStrength) else 0f
-                val dynamicScale = (1f + normalized * effectAmp).coerceIn(0.78f, 1.18f)
-                val dynamicAlpha = if (motionEnabled) (1f + normalized * (0.34f * motionStrength)).coerceIn(0.72f, 1f) else 1f
+                val distance = kotlin.math.abs(normalized)
+                val dynamicScale = if (motionEnabled) {
+                    (1f - distance * (0.24f * motionStrength)).coerceIn(0.9f, 1f)
+                } else {
+                    1f
+                }
+                val dynamicAlpha = if (motionEnabled) {
+                    (1f - distance * (0.34f * motionStrength)).coerceIn(0.76f, 1f)
+                } else {
+                    1f
+                }
                 ScheduleItemRow(
                     item = item,
                     isActive = isActive,
                     isLast = isLast,
                     onClick = { editingItem.value = item },
-                    borderWidth = borderWidth,
                     isLightTheme = isLightTheme,
+                    accentColor = if (!item.isBreak) {
+                        val lessonColors = listOf(
+                            dashboardAccent,
+                            Color(0xFF6366F1), // indigo
+                            Color(0xFF0EA5E9), // sky
+                            Color(0xFF10B981), // emerald
+                            Color(0xFFF59E0B), // amber
+                            Color(0xFFEC4899), // pink
+                            Color(0xFF8B5CF6), // violet
+                            Color(0xFF14B8A6), // teal
+                        )
+                        val lessonIndex = uiState.schedule.take(index + 1).count { !it.isBreak } - 1
+                        lessonColors[lessonIndex.coerceIn(0, lessonColors.size - 1)]
+                    } else null,
                     modifier = Modifier
                         .scale(dynamicScale)
                         .alpha(dynamicAlpha),
@@ -396,9 +481,73 @@ fun ColumnScope.TodayContent(
     }
 }
 
+@Composable
+private fun TodaySummaryCard(
+    uiState: DashboardUiState,
+    trEn: (String, String) -> String,
+) {
+    val summary = uiState.summary
+    if (summary.totalLessons <= 0 && summary.totalBreaks <= 0 && summary.dayWindow.isBlank()) return
+
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SummaryPill(
+                modifier = Modifier.weight(1f),
+                text = "${summary.completedLessons}/${summary.totalLessons} ${trEn("ders", "lessons")}",
+            )
+            SummaryPill(
+                modifier = Modifier.weight(1f),
+                text = "${summary.remainingLessons} ${trEn("kalan", "left")}",
+            )
+            SummaryPill(
+                modifier = Modifier.weight(1f),
+                text = "${summary.totalBreaks} ${trEn("teneffüs", "breaks")}",
+            )
+            if (summary.dayWindow.isNotBlank()) {
+                SummaryPill(
+                    modifier = Modifier.weight(1.15f),
+                    text = summary.dayWindow,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryPill(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+                shape = MaterialTheme.shapes.medium,
+            )
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+        )
+    }
+}
+
 private fun localizeStatus(raw: String, lang: AppLanguage): String {
     if (lang == AppLanguage.TR) return raw
     return raw
+        .replace("Bugün ders yok", "No lessons today")
+        .replace("Bu profil için henüz ders programı yok", "No schedule for this profile yet")
+        .replace("Profil Oluşturuluyor...", "Creating profile...")
         .replace("Sıradaki:", "Next:")
         .replace("Gün Bitti", "Day Finished")
         .replace("Profil Oluşturuluyor...", "Creating profile...")
@@ -411,34 +560,47 @@ fun ScheduleItemRow(
     isActive: Boolean,
     isLast: Boolean = false,
     onClick: () -> Unit,
-    borderWidth: Dp = 2.dp,
     isLightTheme: Boolean = false,
+    accentColor: Color? = null,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     val appLanguage = LocalAppLanguage.current
     fun trEn(tr: String, en: String): String = if (appLanguage == AppLanguage.EN) en else tr
+    val themePair = ThemePalette.getPalette(WidgetStore.getThemeColorName(context))
+    val dashboardAccent = themePair.first
+    val dashboardAccentAlt = themePair.second
 
     val backgroundColor = when {
-        isActive -> Color(0xFF6200EE).copy(alpha = if (isLightTheme) 0.2f else 0.4f)
-        item.isBreak -> Color(0xFF4CAF50).copy(alpha = if (isLightTheme) 0.16f else 0.3f)
-        else -> if (isLightTheme) Color.White.copy(alpha = 0.58f) else Color.Black.copy(alpha = 0.15f)
+        isActive && item.isBreak -> dashboardAccentAlt.copy(alpha = if (isLightTheme) 0.24f else 0.30f)
+        isActive -> dashboardAccent.copy(alpha = if (isLightTheme) 0.18f else 0.24f)
+        item.isBreak -> dashboardAccentAlt.copy(alpha = if (isLightTheme) 0.12f else 0.16f)
+        else -> if (isLightTheme) Color.White.copy(alpha = 0.64f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f)
     }
 
-    val borderColor = when {
-        isActive -> Color(0xFF6200EE).copy(alpha = 0.75f)
-        item.isBreak -> Color(0xFF4CAF50).copy(alpha = 0.6f)
-        else -> if (isLightTheme) Color.Black.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.25f)
-    }
     val textColor = if (isLightTheme) Color(0xFF0F172A) else Color.White
     val subTextColor = if (isLightTheme) Color(0xFF334155) else Color.White.copy(alpha = 0.6f)
 
-    Row(
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .background(backgroundColor, MaterialTheme.shapes.small)
-            .border(borderWidth, borderColor, MaterialTheme.shapes.small)
-            .premiumClickable { onClick() }
-            .padding(16.dp),
+            .premiumClickable { onClick() },
+    ) {
+        // Colored left accent strip
+        if (accentColor != null && !item.isBreak) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(48.dp)
+                    .align(Alignment.CenterStart)
+                    .background(color = accentColor.copy(alpha = if (isActive) 0.9f else 0.5f)),
+            )
+        }
+        Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = if (accentColor != null && !item.isBreak) 20.dp else 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -461,6 +623,7 @@ fun ScheduleItemRow(
             fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
             color = textColor,
         )
+    }
     }
 }
 

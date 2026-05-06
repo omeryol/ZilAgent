@@ -9,29 +9,60 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.zilagent.app.data.AppDatabase
 import com.zilagent.app.data.dao.BellDao
-import com.zilagent.app.data.dao.SyllabusDao
 import com.zilagent.app.data.dao.LessonNoteDao
-import com.zilagent.app.util.SubjectConstants
-import com.zilagent.app.data.entity.*
-import kotlinx.coroutines.flow.*
+import com.zilagent.app.data.dao.SyllabusDao
+import com.zilagent.app.data.entity.BellSchedule
+import com.zilagent.app.data.entity.LessonNote
+import com.zilagent.app.data.entity.SchoolClass
+import com.zilagent.app.data.entity.SchoolSubject
+import com.zilagent.app.data.entity.SyllabusEntry
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
+
+data class WeeklyLessonPlan(
+    val dayOfWeek: Int,
+    val lessonOrder: Int,
+    val isLunchBreak: Boolean = false,
+    val bell: BellSchedule,
+    val entry: SyllabusEntry? = null,
+    val note: LessonNote? = null,
+)
+
+data class WeeklyDayPlan(
+    val dayOfWeek: Int,
+    val lessons: List<WeeklyLessonPlan> = emptyList(),
+)
 
 data class SyllabusUiState(
     val classes: List<SchoolClass> = emptyList(),
     val subjects: List<SchoolSubject> = emptyList(),
-    val selectedDay: Int = 1, // 1..7
     val currentProfileId: Long = -1L,
-    val bellSchedules: List<BellSchedule> = emptyList(),
+    val weekPlans: List<WeeklyDayPlan> = (1..7).map { WeeklyDayPlan(dayOfWeek = it) },
+    val health: ProgramHealth = ProgramHealth(),
     val isLoading: Boolean = false,
-    val showAddClassDialog: Boolean = false,
-    val showAddSubjectDialog: Boolean = false
 )
 
+data class ProgramHealth(
+    val missingAssignmentCount: Int = 0,
+    val notedLessonCount: Int = 0,
+    val emptyDayCount: Int = 0,
+    val overlapCount: Int = 0,
+)
+
+@OptIn(ExperimentalCoroutinesApi::class)
 class SyllabusViewModel(
     application: Application,
     private val syllabusDao: SyllabusDao,
     private val bellDao: BellDao,
-    private val lessonNoteDao: LessonNoteDao
+    private val lessonNoteDao: LessonNoteDao,
 ) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(SyllabusUiState())
@@ -44,56 +75,123 @@ class SyllabusViewModel(
     private fun observeData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            
-            // Observe Active Profile and Chain Schedule Observation
-            bellDao.getActiveProfile().flatMapLatest { profile ->
-                if (profile != null) {
-                    _uiState.update { it.copy(currentProfileId = profile.id) }
-                    // Combine with selectedDay changes
-                    _uiState.map { it.selectedDay }.distinctUntilChanged().flatMapLatest { day ->
-                        bellDao.getSchedulesForProfile(profile.id, day)
+            bellDao.getActiveProfile()
+                .distinctUntilChanged()
+                .flatMapLatest { profile ->
+                    if (profile != null) {
+                        _uiState.update { it.copy(currentProfileId = profile.id) }
+                        combine(
+                            bellDao.getAllSchedulesForProfile(profile.id),
+                            syllabusDao.getAllSyllabus(profile.id),
+                            lessonNoteDao.getNotesForProfile(profile.id),
+                        ) { schedules, entries, notes ->
+                            Triple(schedules, entries, notes)
+                        }
+                    } else {
+                        _uiState.update { it.copy(currentProfileId = -1L) }
+                        flowOf(Triple(emptyList(), emptyList(), emptyList()))
                     }
-                } else {
-                    _uiState.update { it.copy(currentProfileId = -1L) }
-                    flowOf(emptyList())
                 }
-            }.collect { schedules ->
-                _uiState.update { 
-                    it.copy(
-                        bellSchedules = schedules.filter { b -> !b.name.contains("Sabah Töreni") },
-                        isLoading = false 
-                    ) 
+                .collect { (schedules, entries, notes) ->
+                    _uiState.update {
+                        it.copy(
+                            weekPlans = buildWeekPlans(schedules, entries, notes),
+                            health = buildProgramHealth(schedules, entries, notes),
+                            isLoading = false,
+                        )
+                    }
                 }
-            }
         }
-        
+
         viewModelScope.launch {
-             // Observe Classes
             syllabusDao.getAllClasses().collect { list ->
                 _uiState.update { it.copy(classes = list) }
             }
         }
-        
+
         viewModelScope.launch {
-             // Observe Subjects
             syllabusDao.getAllSubjects().collect { list ->
                 _uiState.update { it.copy(subjects = list) }
             }
         }
     }
 
-    fun onDaySelected(day: Int) {
-        _uiState.update { it.copy(selectedDay = day) }
-        // bellSchedules will auto-update due to snapshotFlow in observeData
+    private fun buildWeekPlans(
+        schedules: List<BellSchedule>,
+        entries: List<SyllabusEntry>,
+        notes: List<LessonNote>,
+    ): List<WeeklyDayPlan> {
+        val visibleSchedules = schedules.filterNot { isHiddenSchedule(it) }
+        return (1..7).map { day ->
+            var lessonOrderCounter = 1
+            val dayLessons = visibleSchedules
+                .filter { (!it.isBreak || isLunchBreak(it)) && (it.dayOfWeek == day || it.dayOfWeek == 0) }
+                .sortedBy { it.orderIndex }
+                .map { bell ->
+                    val isLunch = isLunchBreak(bell)
+                    val currentOrder = if (isLunch) -1 else lessonOrderCounter++
+                    WeeklyLessonPlan(
+                        dayOfWeek = day,
+                        lessonOrder = currentOrder,
+                        isLunchBreak = isLunch,
+                        bell = bell,
+                        entry = if (isLunch) null else entries.firstOrNull { it.dayOfWeek == day && it.lessonOrder == currentOrder },
+                        note = if (isLunch) null else notes.firstOrNull { it.dayOfWeek == day && it.lessonOrder == currentOrder },
+                    )
+                }
+            WeeklyDayPlan(dayOfWeek = day, lessons = dayLessons)
+        }
     }
 
-    // Class Management
+    private fun isLunchBreak(bell: BellSchedule): Boolean {
+        val n = bell.name.lowercase()
+        return bell.isBreak && (n.contains("lunch") || n.contains("öğle") || n.contains("ogle"))
+    }
+
+    private fun isHiddenSchedule(schedule: BellSchedule): Boolean {
+        val n = schedule.name.lowercase()
+        return n.contains("sabah töreni") || n.contains("sabah toreni") || n.contains("assembly")
+    }
+
+    private fun buildProgramHealth(
+        schedules: List<BellSchedule>,
+        entries: List<SyllabusEntry>,
+        notes: List<LessonNote>,
+    ): ProgramHealth {
+        val visibleSchedules = schedules.filterNot { isHiddenSchedule(it) }
+        val lessonSlotsByDay = (1..7).associateWith { day ->
+            visibleSchedules
+                .filter { !it.isBreak && (it.dayOfWeek == day || it.dayOfWeek == 0) }
+                .sortedBy { it.orderIndex }
+        }
+        val missingAssignments = lessonSlotsByDay.entries.sumOf { (day, daySchedules) ->
+            daySchedules.mapIndexed { index, _ ->
+                val lessonOrder = index + 1
+                val entry = entries.firstOrNull { it.dayOfWeek == day && it.lessonOrder == lessonOrder }
+                entry?.classId == null || entry.subjectId == null
+            }.count { it }
+        }
+        val overlapCount = visibleSchedules
+            .groupBy { it.dayOfWeek }
+            .values
+            .sumOf { daySchedules ->
+                val ordered = daySchedules.sortedBy { it.startTime }
+                ordered.zipWithNext().count { (left, right) -> right.startTime < left.endTime }
+            }
+        return ProgramHealth(
+            missingAssignmentCount = missingAssignments,
+            notedLessonCount = notes.count { it.note.isNotBlank() },
+            emptyDayCount = lessonSlotsByDay.count { it.value.isEmpty() },
+            overlapCount = overlapCount,
+        )
+    }
+
     fun addClass(name: String, color: String) {
         viewModelScope.launch {
             syllabusDao.insertClass(SchoolClass(name = name, colorHex = color))
         }
     }
-    
+
     fun updateClass(schoolClass: SchoolClass) {
         viewModelScope.launch {
             syllabusDao.insertClass(schoolClass)
@@ -106,13 +204,12 @@ class SyllabusViewModel(
         }
     }
 
-    // Subject Management
     fun addSubject(name: String) {
         viewModelScope.launch {
             syllabusDao.insertSubject(SchoolSubject(name = name, isSystem = false))
         }
     }
-    
+
     fun updateSubject(subject: SchoolSubject) {
         viewModelScope.launch {
             syllabusDao.insertSubject(subject)
@@ -125,44 +222,26 @@ class SyllabusViewModel(
         }
     }
 
-    // Syllabus Management
-    fun saveSyllabusEntry(lessonOrder: Int, classId: Long?, subjectId: Long?) {
-        val currentProfileId = _uiState.value.currentProfileId
-        if (currentProfileId == -1L) return
+    fun saveSyllabusEntry(dayOfWeek: Int, lessonOrder: Int, classId: Long?, subjectId: Long?) {
+        val profileId = _uiState.value.currentProfileId
+        if (profileId == -1L) return
 
         viewModelScope.launch {
             if (classId == null && subjectId == null) {
-                syllabusDao.deleteSyllabusEntry(currentProfileId, _uiState.value.selectedDay, lessonOrder)
+                syllabusDao.deleteSyllabusEntry(profileId, dayOfWeek, lessonOrder)
             } else {
                 syllabusDao.insertSyllabusEntry(
                     SyllabusEntry(
-                        profileId = currentProfileId,
-                        dayOfWeek = _uiState.value.selectedDay,
+                        profileId = profileId,
+                        dayOfWeek = dayOfWeek,
                         lessonOrder = lessonOrder,
                         classId = classId,
-                        subjectId = subjectId
-                    )
+                        subjectId = subjectId,
+                    ),
                 )
             }
             com.zilagent.app.manager.BellManager(getApplication()).refreshWidgetState()
         }
-    }
-
-    fun getSyllabusForDay(day: Int): Flow<List<SyllabusEntry>> {
-        // Simplified to just return the flow based on current profile ID
-        // Note: Ideally this should also be observed in VM, but for now this works 
-        // as long as the ProfileID is updated in uiState (which it is via observeData)
-        
-        return _uiState.map { it.currentProfileId }.distinctUntilChanged()
-            .flatMapLatest { pid ->
-                if (pid != -1L) syllabusDao.getSyllabusForDay(pid, day) else flowOf(emptyList())
-            }
-    }
-
-    fun getNotesForDay(day: Int): Flow<List<LessonNote>> {
-        val profileId = _uiState.value.currentProfileId
-        if (profileId == -1L) return flowOf(emptyList())
-        return lessonNoteDao.getNotesForDay(profileId, day)
     }
 
     fun copyDayPlan(fromDay: Int, toDay: Int) {
@@ -173,34 +252,32 @@ class SyllabusViewModel(
             val source = syllabusDao.getSyllabusForDaySync(profileId, fromDay)
             syllabusDao.deleteSyllabusForDay(profileId, toDay)
             if (source.isNotEmpty()) {
-                val mapped = source.map {
-                    it.copy(dayOfWeek = toDay)
-                }
-                syllabusDao.insertSyllabusEntries(mapped)
+                syllabusDao.insertSyllabusEntries(source.map { it.copy(dayOfWeek = toDay) })
             }
             com.zilagent.app.manager.BellManager(getApplication()).refreshWidgetState()
         }
     }
-    
-    fun saveNote(lessonOrder: Int, noteContent: String) {
-        val currentProfileId = _uiState.value.currentProfileId
-        if (currentProfileId == -1L) return
-        
+
+    fun saveNote(dayOfWeek: Int, lessonOrder: Int, noteContent: String) {
+        val profileId = _uiState.value.currentProfileId
+        if (profileId == -1L) return
+
         viewModelScope.launch {
             if (noteContent.isBlank()) {
-               // logic to delete if needed, but for now we just save blank or we can query id and delete.
-               // simpler to just save empty string or handle it in DAO.
-               // actually we should probably support delete.
-               // get existing note to find ID?
-               val existing = lessonNoteDao.getNoteSync(currentProfileId, _uiState.value.selectedDay, lessonOrder)
-               if (existing != null) {
-                   lessonNoteDao.delete(existing.id)
-               }
+                val existing = lessonNoteDao.getNoteSync(profileId, dayOfWeek, lessonOrder)
+                if (existing != null) {
+                    lessonNoteDao.delete(existing.id)
+                }
             } else {
-               val existing = lessonNoteDao.getNoteSync(currentProfileId, _uiState.value.selectedDay, lessonOrder)
-               val newNote = existing?.copy(note = noteContent, updatedAt = System.currentTimeMillis())
-                   ?: LessonNote(profileId = currentProfileId, dayOfWeek = _uiState.value.selectedDay, lessonOrder = lessonOrder, note = noteContent)
-               lessonNoteDao.insert(newNote)
+                val existing = lessonNoteDao.getNoteSync(profileId, dayOfWeek, lessonOrder)
+                val newNote = existing?.copy(note = noteContent, updatedAt = System.currentTimeMillis())
+                    ?: LessonNote(
+                        profileId = profileId,
+                        dayOfWeek = dayOfWeek,
+                        lessonOrder = lessonOrder,
+                        note = noteContent,
+                    )
+                lessonNoteDao.insert(newNote)
             }
         }
     }
@@ -214,7 +291,7 @@ class SyllabusViewModel(
                     application = application,
                     syllabusDao = db.syllabusDao(),
                     bellDao = db.bellDao(),
-                    lessonNoteDao = db.lessonNoteDao()
+                    lessonNoteDao = db.lessonNoteDao(),
                 )
             }
         }

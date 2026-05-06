@@ -15,9 +15,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.EditCalendar
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -50,10 +56,14 @@ data class OnboardingStep(
     val descriptionTr: String,
     val descriptionEn: String,
     val lottieRes: Int? = null,
+    val icon: ImageVector? = null,
 )
 
 @Composable
-fun OnboardingScreen(onFinish: () -> Unit) {
+fun OnboardingScreen(
+    onFinish: () -> Unit,
+    onFinishToSettings: () -> Unit = onFinish,
+) {
     val context = LocalContext.current
     var currentStep by remember { mutableStateOf(0) }
     var language by remember { mutableStateOf(AppLanguage.fromCode(WidgetStore.getAppLanguage(context))) }
@@ -63,27 +73,30 @@ fun OnboardingScreen(onFinish: () -> Unit) {
         OnboardingStep(
             titleTr = "Hoş Geldiniz!",
             titleEn = "Welcome!",
-            descriptionTr = "ZilAgent ile okul programınızı dijitalleştirin. Saniye bazında ders takibi yapın.",
-            descriptionEn = "Digitize your school day with ZilAgent. Track every lesson down to the second.",
+            descriptionTr = "ZilAgent ile okul programınızı dijitalleştirin. Saniye bazında ders takibi yapın. Hazır örnek program oluşturuldu.",
+            descriptionEn = "Digitize your school day with ZilAgent. Track every lesson down to the second. A sample schedule has been created for you.",
             lottieRes = R.raw.empty_animation,
         ),
         OnboardingStep(
             titleTr = "Akıllı Profiller",
             titleEn = "Smart Profiles",
-            descriptionTr = "Farklı programlar arasında tek dokunuşla geçiş yapın.",
-            descriptionEn = "Switch between multiple schedules with a single tap.",
+            descriptionTr = "Farklı programlar arasında tek dokunuşla geçiş yapın. Her profil için ayrı ders saatleri tanımlayın.",
+            descriptionEn = "Switch between multiple schedules with a single tap. Define custom lesson times for each profile.",
+            icon = Icons.Default.EditCalendar,
         ),
         OnboardingStep(
             titleTr = "Modern Widget'lar",
             titleEn = "Modern Widgets",
-            descriptionTr = "Ana ekrandan doğrudan geri sayım ve ders akışını takip edin.",
-            descriptionEn = "Follow countdown and daily flow directly from your home screen.",
+            descriptionTr = "Ana ekranda geri sayım widget'ı ekleyin. Ders ve teneffüs süreleri hızlıca görünür.",
+            descriptionEn = "Add a countdown widget to your home screen. See lesson and break times at a glance.",
+            icon = Icons.Default.Widgets,
         ),
         OnboardingStep(
             titleTr = "Sınav Modu",
             titleEn = "Exam Mode",
-            descriptionTr = "Büyük ekran geri sayım ile sınıfın her yerinden görünür süre takibi.",
-            descriptionEn = "Large full-screen countdown visible from anywhere in the classroom.",
+            descriptionTr = "Büyük ekran geri sayım ile sınıfın her yerinden görünür süre takibi. Hazırsın!",
+            descriptionEn = "Large full-screen countdown visible from anywhere in the classroom. You're all set!",
+            icon = Icons.Default.School,
         ),
     )
 
@@ -118,22 +131,40 @@ fun OnboardingScreen(onFinish: () -> Unit) {
 
             val step = steps[currentStep]
             Box(modifier = Modifier.height(250.dp), contentAlignment = Alignment.Center) {
-                if (step.lottieRes != null) {
-                    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(step.lottieRes))
-                    LottieAnimation(composition, iterations = LottieConstants.IterateForever, modifier = Modifier.size(200.dp))
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(120.dp)
-                            .background(Color.White.copy(alpha = 0.2f), CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = (currentStep + 1).toString(),
-                            fontSize = 48.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White,
-                        )
+                when {
+                    step.lottieRes != null -> {
+                        val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(step.lottieRes))
+                        LottieAnimation(composition, iterations = LottieConstants.IterateForever, modifier = Modifier.size(200.dp))
+                    }
+                    step.icon != null -> {
+                        Box(
+                            modifier = Modifier
+                                .size(120.dp)
+                                .background(Color.White.copy(alpha = 0.2f), CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = step.icon,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(56.dp),
+                            )
+                        }
+                    }
+                    else -> {
+                        Box(
+                            modifier = Modifier
+                                .size(120.dp)
+                                .background(Color.White.copy(alpha = 0.2f), CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = (currentStep + 1).toString(),
+                                fontSize = 48.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White,
+                            )
+                        }
                     }
                 }
             }
@@ -201,7 +232,28 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                 )
                 if (currentStep < steps.size - 1) {
                     Spacer(modifier = Modifier.width(8.dp))
-                    androidx.compose.material3.Icon(Icons.Default.ArrowForward, contentDescription = null, tint = Color.White)
+                    Icon(Icons.Default.ArrowForward, contentDescription = null, tint = Color.White)
+                }
+            }
+            // On the last step, offer a shortcut to Widget Settings
+            if (currentStep == steps.size - 1) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = onFinishToSettings,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .premiumTouchEffect(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.15f)),
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    Icon(Icons.Default.Widgets, contentDescription = null, tint = Color.White.copy(alpha = 0.9f))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = trEn("Widget Ayarlarına Git", "Go to Widget Settings"),
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White.copy(alpha = 0.9f),
+                    )
                 }
             }
         }

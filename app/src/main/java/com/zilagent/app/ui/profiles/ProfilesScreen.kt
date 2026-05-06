@@ -1,4 +1,4 @@
-package com.zilagent.app.ui.profiles
+﻿package com.zilagent.app.ui.profiles
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,16 +12,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -65,24 +66,15 @@ fun ProfilesScreen(
                 },
                 colors = TopAppBarDefaults.smallTopAppBarColors(
                     containerColor = Color.Transparent,
-                    titleContentColor = Color.White,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
                 ),
             )
         },
         containerColor = Color.Transparent,
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { onNavigateToEdit(-1L) },
-                containerColor = Color.Transparent,
-                elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp),
-            ) {
-                GradientIcon(Icons.Default.Add, IconGradients.Blue, size = 56.dp, iconSize = 24.dp)
-            }
-        },
     ) { paddingValues ->
         ZilAgentBackground(modifier = Modifier.padding(paddingValues)) {
             if (uiState.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color.White)
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.primary)
             } else {
                 LazyColumn(
                     modifier = Modifier
@@ -90,6 +82,32 @@ fun ProfilesScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
+                    item {
+                        GlassCard(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = trEn("Yeni Profil Ekle", "Add New Profile"),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Button(
+                                    onClick = { onNavigateToEdit(-1L) },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                ) {
+                                    Text(trEn("Ekle", "Add"))
+                                }
+                            }
+                        }
+                    }
                     items(uiState.profiles) { profile ->
                         ProfileItem(
                             profile = profile,
@@ -99,6 +117,10 @@ fun ProfilesScreen(
                                 viewModel.selectProfile(profile)
                             },
                             onEdit = { onNavigateToEdit(profile.id) },
+                            onDuplicate = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                viewModel.duplicateProfile(profile)
+                            },
                             onDelete = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 viewModel.deleteProfile(profile)
@@ -117,6 +139,7 @@ fun ProfileItem(
     activeLabel: String,
     onSelect: () -> Unit,
     onEdit: () -> Unit,
+    onDuplicate: () -> Unit,
     onDelete: () -> Unit,
 ) {
     GlassCard(
@@ -133,7 +156,7 @@ fun ProfileItem(
                 Text(
                     text = profile.name,
                     style = MaterialTheme.typography.titleLarge,
-                    color = if (profile.isActive) MaterialTheme.colorScheme.primary else Color.White,
+                    color = if (profile.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 )
                 if (profile.isActive) {
                     Text(
@@ -146,6 +169,9 @@ fun ProfileItem(
             Row {
                 IconButton(onClick = onEdit) {
                     GradientIcon(Icons.Default.Edit, IconGradients.Blue, size = 32.dp, iconSize = 18.dp)
+                }
+                IconButton(onClick = onDuplicate) {
+                    GradientIcon(Icons.Default.ContentCopy, IconGradients.Purple, size = 32.dp, iconSize = 18.dp)
                 }
                 IconButton(onClick = onDelete) {
                     GradientIcon(Icons.Default.Delete, IconGradients.Lava, size = 32.dp, iconSize = 18.dp)

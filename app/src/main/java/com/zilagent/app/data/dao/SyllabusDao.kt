@@ -43,6 +43,9 @@ interface SyllabusDao {
     suspend fun getSyllabusForDaySync(profileId: Long, dayOfWeek: Int): List<SyllabusEntry>
 
     @Query("SELECT * FROM syllabus_entries WHERE profileId = :profileId")
+    fun getAllSyllabus(profileId: Long): Flow<List<SyllabusEntry>>
+
+    @Query("SELECT * FROM syllabus_entries WHERE profileId = :profileId")
     suspend fun getAllSyllabusSync(profileId: Long): List<SyllabusEntry>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

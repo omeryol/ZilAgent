@@ -60,7 +60,7 @@ fun EditScheduleDialog(
     val parsedDuration = durationText.toIntOrNull() ?: 0
     val safeDuration = parsedDuration.coerceAtLeast(0)
     val endTimeMinutes = startTimeMinutes + safeDuration
-    val kindText = if (item.isBreak) "Teneffus" else "Ders"
+    val kindText = if (item.isBreak) "Teneffüs" else "Ders"
 
     Dialog(onDismissRequest = onDismiss) {
         GlassCard(
@@ -86,7 +86,7 @@ fun EditScheduleDialog(
                             color = Color.White,
                         )
                         Text(
-                            text = "$kindText duzenlemesi",
+                            text = "$kindText düzenlemesi",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.White.copy(alpha = 0.7f),
                         )
@@ -107,7 +107,7 @@ fun EditScheduleDialog(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Text(
-                        text = "Baslangic saati",
+                        text = "Başlangıç saati",
                         style = MaterialTheme.typography.labelLarge,
                         color = Color.White.copy(alpha = 0.9f),
                         fontWeight = FontWeight.SemiBold,
@@ -136,14 +136,14 @@ fun EditScheduleDialog(
                         onValueChange = { input ->
                             if (input.all(Char::isDigit)) durationText = input
                         },
-                        label = { Text("Sure (dk)") },
+                        label = { Text("Süre (dk)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
 
                     Text(
-                        text = "Bitis saati: ${TimeUtils.minutesToTime(endTimeMinutes)}",
+                        text = "Bitiş saati: ${TimeUtils.minutesToTime(endTimeMinutes)}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFFB7F5C8),
@@ -175,19 +175,19 @@ fun EditScheduleDialog(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Checkbox(checked = notifyStart, onCheckedChange = { notifyStart = it })
-                        Text("Baslangicta bildir", color = Color.White.copy(alpha = 0.92f))
+                        Text("Başlangıçta bildir", color = Color.White.copy(alpha = 0.92f))
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth().premiumClickable { notifyEnd = !notifyEnd },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Checkbox(checked = notifyEnd, onCheckedChange = { notifyEnd = it })
-                        Text("Bitiste bildir", color = Color.White.copy(alpha = 0.92f))
+                        Text("Bitişte bildir", color = Color.White.copy(alpha = 0.92f))
                     }
                 }
 
                 Text(
-                    text = "Degisiklik kaydedildiginde sonraki tum satirlar zincirleme guncellenir.",
+                    text = "Değişiklik kaydedildiğinde sonraki tüm satırlar zincirleme güncellenir.",
                     color = Color.White.copy(alpha = 0.7f),
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -198,7 +198,7 @@ fun EditScheduleDialog(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     TextButton(onClick = onDismiss, modifier = Modifier.premiumTouchEffect()) {
-                        Text("Iptal")
+                        Text("İptal")
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(

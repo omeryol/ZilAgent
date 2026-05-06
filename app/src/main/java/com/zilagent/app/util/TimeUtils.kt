@@ -7,8 +7,9 @@ import java.time.format.DateTimeFormatter
 object TimeUtils {
 
     fun minutesToTime(minutes: Int): String {
-        val h = (minutes / 60) % 24
-        val m = minutes % 60
+        val clamped = minutes.coerceIn(0, 1439)
+        val h = clamped / 60
+        val m = clamped % 60
         return String.format("%02d:%02d", h, m)
     }
 

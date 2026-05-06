@@ -12,8 +12,10 @@ import com.zilagent.app.data.AppDatabase
 import com.zilagent.app.data.dao.BellDao
 import com.zilagent.app.data.entity.BellSchedule
 import com.zilagent.app.data.entity.Profile
+import com.zilagent.app.domain.ScheduleGenerator
 import com.zilagent.app.manager.BellManager
 import com.zilagent.app.util.TimeUtils
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -27,9 +29,20 @@ data class DashboardUiState(
     val secondsRemaining: Long = 0,
     val currentStatusText: String = "Loading...", // "3. Ders", "Tenefüs", etc.
     val isEndOfDay: Boolean = false,
-    val activeItemId: Long? = null
+    val activeItemId: Long? = null,
+    val hasAnyScheduleForProfile: Boolean = false,
+    val summary: DashboardSummary = DashboardSummary(),
 )
 
+data class DashboardSummary(
+    val totalLessons: Int = 0,
+    val completedLessons: Int = 0,
+    val remainingLessons: Int = 0,
+    val totalBreaks: Int = 0,
+    val dayWindow: String = "",
+)
+
+@OptIn(ExperimentalCoroutinesApi::class)
 class DashboardViewModel(
     private val bellDao: BellDao,
     private val bellManager: BellManager
@@ -113,20 +126,30 @@ class DashboardViewModel(
                     if (profile != null) {
                         _uiState.value = _uiState.value.copy(currentProfile = profile)
                         val today = java.time.LocalDate.now().dayOfWeek.value
-                        bellDao.getSchedulesForProfile(profile.id, today)
+                        combine(
+                            bellDao.getSchedulesForProfile(profile.id, today),
+                            bellDao.getAllSchedulesForProfile(profile.id),
+                        ) { todaySchedules, allSchedules ->
+                            todaySchedules to allSchedules.any { !it.isBreak }
+                        }
                     } else {
                         _uiState.value = _uiState.value.copy(
                             currentProfile = null,
                             schedule = emptyList(),
-                            currentStatusText = "Profil Oluşturuluyor..."
+                            currentStatusText = "Profil Oluşturuluyor...",
+                            hasAnyScheduleForProfile = false,
+                            summary = DashboardSummary(),
                         )
-                        flowOf(emptyList<BellSchedule>())
+                        flowOf(emptyList<BellSchedule>() to false)
                     }
                 }
                 .distinctUntilChanged()
-                .collect { schedules ->
-                    _uiState.value = _uiState.value.copy(schedule = schedules)
-                    calculateStatus(schedules)
+                .collect { (schedules, hasAnySchedule) ->
+                    _uiState.value = _uiState.value.copy(
+                        schedule = schedules,
+                        hasAnyScheduleForProfile = hasAnySchedule,
+                    )
+                    calculateStatus(schedules, hasAnySchedule)
                 }
         }
     }
@@ -138,33 +161,116 @@ class DashboardViewModel(
         val index = schedules.indexOfFirst { it.id == item.id }
         if (index == -1) return
 
-        // Calculate new end time based on NEW duration
-        val newEndTime = newStartTime + newDuration
+        val updatedTodaySchedules = applyItemUpdate(
+            schedules = schedules,
+            index = index,
+            newStartTime = newStartTime,
+            newDuration = newDuration,
+            notifyStart = notifyStart,
+            notifyEnd = notifyEnd,
+        )
+        val startShift = newStartTime - item.startTime
 
-        var updatedSchedules = com.zilagent.app.domain.ScheduleGenerator.updateScheduleFromIndex(
+        viewModelScope.launch {
+            val allSchedules = bellDao.getAllSchedulesForProfileSync(item.profileId)
+            val updatedSchedulesByDay = allSchedules
+                .groupBy { it.dayOfWeek }
+                .mapValues { (_, daySchedules) ->
+                    val sortedSchedules = daySchedules.sortedBy { it.orderIndex }
+                    val matchingIndex = findMatchingScheduleIndex(
+                        schedules = sortedSchedules,
+                        targetItem = item,
+                        fallbackIndex = index,
+                    )
+
+                    if (matchingIndex == -1) {
+                        sortedSchedules
+                    } else {
+                        val dayItem = sortedSchedules[matchingIndex]
+                        val targetStartTime = if (dayItem.id == item.id) {
+                            newStartTime
+                        } else {
+                            dayItem.startTime + startShift
+                        }
+                        applyItemUpdate(
+                            schedules = sortedSchedules,
+                            index = matchingIndex,
+                            newStartTime = targetStartTime,
+                            newDuration = newDuration,
+                            notifyStart = notifyStart,
+                            notifyEnd = notifyEnd,
+                        )
+                    }
+                }
+
+            bellDao.insertSchedules(updatedSchedulesByDay.values.flatten())
+
+            val today = java.time.LocalDate.now().dayOfWeek.value
+            val todaySchedule = buildVisibleTodaySchedule(updatedSchedulesByDay, today)
+            bellManager.scheduleDailyAlarms(todaySchedule)
+
+            _uiState.value = _uiState.value.copy(
+                schedule = if (todaySchedule.isNotEmpty()) todaySchedule else updatedTodaySchedules,
+            )
+        }
+    }
+
+    private fun applyItemUpdate(
+        schedules: List<BellSchedule>,
+        index: Int,
+        newStartTime: Int,
+        newDuration: Int,
+        notifyStart: Boolean,
+        notifyEnd: Boolean,
+    ): List<BellSchedule> {
+        val newEndTime = newStartTime + newDuration
+        val updatedSchedules = ScheduleGenerator.updateScheduleFromIndex(
             currentSchedule = schedules,
             index = index,
             newStartTime = newStartTime,
-            newEndTime = newEndTime
+            newEndTime = newEndTime,
         )
-        
-        // Update flags for the modified item
-        updatedSchedules = updatedSchedules.toMutableList().apply {
-            this[index] = this[index].copy(notifyAtStart = notifyStart, notifyAtEnd = notifyEnd)
-        }
 
-        viewModelScope.launch {
-            // Update DB
-            bellDao.insertSchedules(updatedSchedules)
-            
-            // Reschedule Alarms for TODAY
-            val today = java.time.LocalDate.now().dayOfWeek.value
-            val todaySchedule = bellDao.getSchedulesForProfileSync(item.profileId, today)
-            bellManager.scheduleDailyAlarms(todaySchedule)
-            
-            // Optimistic UI update
-            _uiState.value = _uiState.value.copy(schedule = updatedSchedules)
+        return updatedSchedules.toMutableList().apply {
+            this[index] = this[index].copy(
+                notifyAtStart = notifyStart,
+                notifyAtEnd = notifyEnd,
+            )
         }
+    }
+
+    private fun findMatchingScheduleIndex(
+        schedules: List<BellSchedule>,
+        targetItem: BellSchedule,
+        fallbackIndex: Int,
+    ): Int {
+        val targetName = comparableScheduleName(targetItem.name)
+
+        return schedules.indexOfFirst {
+            it.orderIndex == targetItem.orderIndex && it.isBreak == targetItem.isBreak
+        }.takeIf { it >= 0 }
+            ?: schedules.indexOfFirst {
+                it.isBreak == targetItem.isBreak && comparableScheduleName(it.name) == targetName
+            }.takeIf { it >= 0 }
+            ?: fallbackIndex.takeIf {
+                it in schedules.indices && schedules[it].isBreak == targetItem.isBreak
+            }
+            ?: -1
+    }
+
+    private fun comparableScheduleName(name: String): String {
+        return normalizeScheduleName(name)
+            .replace(".", "")
+            .replace(" ", "")
+            .filterNot(Char::isDigit)
+    }
+
+    private fun buildVisibleTodaySchedule(
+        schedulesByDay: Map<Int, List<BellSchedule>>,
+        today: Int,
+    ): List<BellSchedule> {
+        return (schedulesByDay[today].orEmpty() + schedulesByDay[0].orEmpty())
+            .sortedBy { it.orderIndex }
     }
 
     private fun startTimer() {
@@ -181,24 +287,49 @@ class DashboardViewModel(
         }
     }
 
-    private fun calculateStatus(schedules: List<BellSchedule>) {
+    private suspend fun calculateStatus(
+        schedules: List<BellSchedule>,
+        hasAnySchedule: Boolean = _uiState.value.hasAnyScheduleForProfile,
+    ) {
         if (bellManager.isHolidayToday()) {
             if (currentHolidayQuote == null) {
-                currentHolidayQuote = com.zilagent.app.util.QuoteConstants.getRandomQuote(bellManager.getAppLanguage())
+                currentHolidayQuote = com.zilagent.app.util.QuoteConstants.getRandomQuoteDisplayText(
+                    bellManager.getAppLanguage(),
+                )
             }
             _uiState.value = _uiState.value.copy(
                 nextBell = null,
                 secondsRemaining = 0,
                 currentStatusText = currentHolidayQuote!!,
                 isEndOfDay = true,
-                activeItemId = null
+                activeItemId = null,
+                summary = buildSummary(schedules, TimeUtils.getCurrentMinutes()),
             )
             return
         }
         currentHolidayQuote = null
+
+        if (schedules.isEmpty()) {
+            val emptyStatus = when {
+                _uiState.value.currentProfile == null -> "Profil Oluşturuluyor..."
+                hasAnySchedule -> "Bugün ders yok"
+                else -> "Bu profil için henüz ders programı yok"
+            }
+            _uiState.value = _uiState.value.copy(
+                nextBell = null,
+                secondsRemaining = 0,
+                currentStatusText = emptyStatus,
+                isEndOfDay = true,
+                activeItemId = null,
+                summary = DashboardSummary(),
+            )
+            return
+        }
+
         val now = TimeUtils.getCurrentMinutes()
         val nowTime = LocalTime.now()
         val nowSecondsTotal = nowTime.toSecondOfDay()
+        val summary = buildSummary(schedules, now)
 
         // Find current or next event
         // 1. Is it currently during a lesson/break?
@@ -221,7 +352,8 @@ class DashboardViewModel(
                 secondsRemaining = finalRemaining.toLong(),
                 currentStatusText = activeEvent.name,
                 isEndOfDay = false,
-                activeItemId = activeEvent.id
+                activeItemId = activeEvent.id,
+                summary = summary,
             )
         } else {
             // Check if before first
@@ -234,7 +366,8 @@ class DashboardViewModel(
                     secondsRemaining = remaining.toLong(),
                     currentStatusText = "Sıradaki: ${first.name}",
                     isEndOfDay = false,
-                    activeItemId = null
+                    activeItemId = null,
+                    summary = summary
                 )
             } else {
                 // Check if after last
@@ -245,7 +378,8 @@ class DashboardViewModel(
                         secondsRemaining = 0,
                         currentStatusText = "Gün Bitti",
                         isEndOfDay = true,
-                        activeItemId = null
+                        activeItemId = null,
+                        summary = summary
                     )
                 } else {
                     val next = schedules.firstOrNull { it.startTime > now }
@@ -257,12 +391,75 @@ class DashboardViewModel(
                             secondsRemaining = remaining.toLong(),
                             currentStatusText = "Sıradaki: ${next.name}",
                             isEndOfDay = false,
-                            activeItemId = null
+                            activeItemId = null,
+                            summary = summary
                         )
                     }
                 }
             }
         }
+    }
+
+    private fun buildSummary(
+        schedules: List<BellSchedule>,
+        nowMinutes: Int,
+    ): DashboardSummary {
+        if (schedules.isEmpty()) return DashboardSummary()
+        val lessons = schedules.filter(::isCountableLesson)
+        val breaks = schedules.count(::isStandardBreak)
+        val totalLessons = lessons.size
+        val completedLessons = lessons.count { nowMinutes >= it.endTime }
+        val remainingLessons = lessons.count { nowMinutes < it.endTime }
+        val firstStart = schedules.minOfOrNull { it.startTime }
+        val lastEnd = schedules.maxOfOrNull { it.endTime }
+        val dayWindow = if (firstStart != null && lastEnd != null) {
+            "${TimeUtils.minutesToTime(firstStart)} - ${TimeUtils.minutesToTime(lastEnd)}"
+        } else {
+            ""
+        }
+        return DashboardSummary(
+            totalLessons = totalLessons,
+            completedLessons = completedLessons,
+            remainingLessons = remainingLessons,
+            totalBreaks = breaks,
+            dayWindow = dayWindow,
+        )
+    }
+
+    private fun isCountableLesson(item: BellSchedule): Boolean {
+        if (item.isBreak) return false
+        val lowered = normalizeScheduleName(item.name)
+        return lowered.contains("ders") || lowered.contains("lesson")
+    }
+
+    private fun isStandardBreak(item: BellSchedule): Boolean {
+        if (!item.isBreak) return false
+        return !isLunchBreak(item) && !isPrepBreak(item)
+    }
+
+    private fun isLunchBreak(item: BellSchedule): Boolean {
+        val lowered = normalizeScheduleName(item.name)
+        return lowered.contains("ogle") || lowered.contains("lunch")
+    }
+
+    private fun isPrepBreak(item: BellSchedule): Boolean {
+        val lowered = normalizeScheduleName(item.name)
+        return lowered.contains("hazirlik") || lowered.contains("prep")
+    }
+
+    private fun normalizeScheduleName(name: String): String {
+        return name
+            .lowercase()
+            .replace("ö", "o")
+            .replace("ğ", "g")
+            .replace("ı", "i")
+            .replace("ş", "s")
+            .replace("ü", "u")
+            .replace("Ã¶", "o")
+            .replace("ÄŸ", "g")
+            .replace("Ä±", "i")
+            .replace("ÅŸ", "s")
+            .replace("Ã¼", "u")
     }
 
     companion object {

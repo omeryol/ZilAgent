@@ -4,9 +4,42 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import com.zilagent.app.util.SpecialDaysCatalog
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 object WidgetStore {
     const val PREFS_NAME = "zil_agent_widget_prefs"
+
+    private const val COUNTDOWN_WIDGET_PRESET = "COUNTDOWN_WIDGET_PRESET"
+    private const val SYLLABUS_WIDGET_PRESET = "SYLLABUS_WIDGET_PRESET"
+    private const val COUNTDOWN_WIDGET_FAMILY = "COUNTDOWN_WIDGET_FAMILY"
+    private const val SYLLABUS_WIDGET_FAMILY = "SYLLABUS_WIDGET_FAMILY"
+    private const val COUNTDOWN_WIDGET_DENSITY = "COUNTDOWN_WIDGET_DENSITY"
+    private const val SYLLABUS_WIDGET_DENSITY = "SYLLABUS_WIDGET_DENSITY"
+    private const val COUNTDOWN_WIDGET_TYPOGRAPHY = "COUNTDOWN_WIDGET_TYPOGRAPHY"
+    private const val SYLLABUS_WIDGET_TYPOGRAPHY = "SYLLABUS_WIDGET_TYPOGRAPHY"
+    private const val GLOBAL_WIDGET_TEXT_SCALE = "GLOBAL_WIDGET_TEXT_SCALE"
+    private const val COUNTDOWN_MICRO_ICONS = "COUNTDOWN_MICRO_ICONS"
+    private const val SPECIAL_DAYS_LEAD_DAYS = "SPECIAL_DAYS_LEAD_DAYS"
+    private const val SPECIAL_DAYS_SELECTED_TEMPLATE_IDS = "SPECIAL_DAYS_SELECTED_TEMPLATE_IDS"
+    private const val SPECIAL_DAYS_CUSTOM_ENTRIES = "SPECIAL_DAYS_CUSTOM_ENTRIES"
+
+    data class SpecialReminderEntry(
+        val id: String,
+        val name: String,
+        val startDate: String,
+        val endDate: String,
+    )
+
+    data class ActiveSpecialReminder(
+        val name: String,
+        val startDate: LocalDate,
+        val endDate: LocalDate,
+        val daysUntilStart: Long,
+        val daysUntilEnd: Long,
+        val isOngoing: Boolean,
+    )
     
     fun updateNextBell(context: Context, name: String, targetTime: Int, syllabusInfo: String? = null, classColor: String? = null, startTime: Int = -1) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -52,6 +85,7 @@ object WidgetStore {
     fun setDynamicColorEnabled(context: Context, enabled: Boolean) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putBoolean("DYNAMIC_COLOR_ENABLED", enabled).apply()
+        triggerAll(context)
     }
 
     fun isDynamicColorEnabled(context: Context): Boolean {
@@ -137,6 +171,17 @@ object WidgetStore {
     fun getWidgetCornerRadius(context: Context): Int {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getInt("WIDGET_CORNER_RADIUS", 16)
+    }
+
+    fun setWidgetStylePreset(context: Context, preset: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt("WIDGET_STYLE_PRESET", preset.coerceIn(0, 3)).apply()
+        triggerAll(context)
+    }
+
+    fun getWidgetStylePreset(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt("WIDGET_STYLE_PRESET", 0).coerceIn(0, 3)
     }
 
     fun setThemeMode(context: Context, mode: Int) {
@@ -269,6 +314,116 @@ object WidgetStore {
     fun isShowSeconds(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getBoolean("SHOW_SECONDS", true)
+    }
+
+    fun setCountdownQuoteGreetingEnabled(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("COUNTDOWN_QUOTE_GREETING_ENABLED", enabled).apply()
+        triggerAll(context)
+    }
+
+    fun isCountdownQuoteGreetingEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean("COUNTDOWN_QUOTE_GREETING_ENABLED", true)
+    }
+
+    fun setCountdownQuoteSourceEnabled(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("COUNTDOWN_QUOTE_SOURCE_ENABLED", enabled).apply()
+        triggerAll(context)
+    }
+
+    fun isCountdownQuoteSourceEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean("COUNTDOWN_QUOTE_SOURCE_ENABLED", true)
+    }
+
+    fun setCountdownQuoteAlignment(context: Context, alignment: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt("COUNTDOWN_QUOTE_ALIGNMENT", alignment.coerceIn(0, 2)).apply()
+        triggerAll(context)
+    }
+
+    fun getCountdownQuoteAlignment(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt("COUNTDOWN_QUOTE_ALIGNMENT", 0).coerceIn(0, 2)
+    }
+
+    fun setCountdownQuoteSourceAlignment(context: Context, alignment: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt("COUNTDOWN_QUOTE_SOURCE_ALIGNMENT", alignment.coerceIn(0, 2)).apply()
+        triggerAll(context)
+    }
+
+    fun getCountdownQuoteSourceAlignment(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt("COUNTDOWN_QUOTE_SOURCE_ALIGNMENT", getCountdownQuoteAlignment(context)).coerceIn(0, 2)
+    }
+
+    fun setCountdownQuoteTextTone(context: Context, tone: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt("COUNTDOWN_QUOTE_TEXT_TONE", tone.coerceIn(0, 3)).apply()
+        triggerAll(context)
+    }
+
+    fun getCountdownQuoteTextTone(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt("COUNTDOWN_QUOTE_TEXT_TONE", 0).coerceIn(0, 3)
+    }
+
+    fun setCountdownQuoteSourceTone(context: Context, tone: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt("COUNTDOWN_QUOTE_SOURCE_TONE", tone.coerceIn(0, 3)).apply()
+        triggerAll(context)
+    }
+
+    fun getCountdownQuoteSourceTone(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt("COUNTDOWN_QUOTE_SOURCE_TONE", 2).coerceIn(0, 3)
+    }
+
+    fun setCountdownQuoteTextBold(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("COUNTDOWN_QUOTE_TEXT_BOLD", enabled).apply()
+        triggerAll(context)
+    }
+
+    fun isCountdownQuoteTextBold(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean("COUNTDOWN_QUOTE_TEXT_BOLD", true)
+    }
+
+    fun setCountdownQuoteTextItalic(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("COUNTDOWN_QUOTE_TEXT_ITALIC", enabled).apply()
+        triggerAll(context)
+    }
+
+    fun isCountdownQuoteTextItalic(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean("COUNTDOWN_QUOTE_TEXT_ITALIC", false)
+    }
+
+    fun setCountdownQuoteSourceBold(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("COUNTDOWN_QUOTE_SOURCE_BOLD", enabled).apply()
+        triggerAll(context)
+    }
+
+    fun isCountdownQuoteSourceBold(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean("COUNTDOWN_QUOTE_SOURCE_BOLD", false)
+    }
+
+    fun setCountdownQuoteSourceItalic(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("COUNTDOWN_QUOTE_SOURCE_ITALIC", enabled).apply()
+        triggerAll(context)
+    }
+
+    fun isCountdownQuoteSourceItalic(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean("COUNTDOWN_QUOTE_SOURCE_ITALIC", false)
     }
 
     fun setMultilineEnabled(context: Context, enabled: Boolean) {
@@ -437,6 +592,17 @@ object WidgetStore {
         return prefs.getBoolean("SYLLABUS_COLORIZE_TEXT", true)
     }
 
+    fun setSyllabusPaletteScaleEnabled(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("SYLLABUS_PALETTE_SCALE_ENABLED", enabled).apply()
+        triggerAll(context)
+    }
+
+    fun isSyllabusPaletteScaleEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean("SYLLABUS_PALETTE_SCALE_ENABLED", true)
+    }
+
     fun setDashboardMotionEnabled(context: Context, enabled: Boolean) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putBoolean("DASHBOARD_MOTION_ENABLED", enabled).apply()
@@ -553,11 +719,473 @@ object WidgetStore {
         val safe = if (languageCode.lowercase() == "en") "en" else "tr"
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putString("APP_LANGUAGE", safe).apply()
+        triggerAll(context)
     }
 
     fun getAppLanguage(context: Context): String {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString("APP_LANGUAGE", "tr") ?: "tr"
+        val lang = prefs.getString("APP_LANGUAGE", "tr") ?: "tr"
+        return if (lang in listOf("tr", "en")) lang else "tr"
+    }
+
+    fun setWeeklyHideEmptyDays(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("WEEKLY_HIDE_EMPTY_DAYS", enabled).apply()
+    }
+
+    fun isWeeklyHideEmptyDays(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean("WEEKLY_HIDE_EMPTY_DAYS", false)
+    }
+
+    fun setCountdownWidgetPreset(context: Context, preset: WidgetVisualPreset) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(COUNTDOWN_WIDGET_PRESET, preset.key)
+            .apply()
+        triggerAll(context)
+    }
+
+    fun getCountdownWidgetPreset(context: Context): WidgetVisualPreset {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(COUNTDOWN_WIDGET_PRESET, WidgetVisualPreset.Slate.key)
+        return WidgetVisualPreset.fromKey(raw)
+    }
+
+    fun setSyllabusWidgetPreset(context: Context, preset: WidgetVisualPreset) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(SYLLABUS_WIDGET_PRESET, preset.key)
+            .apply()
+        triggerAll(context)
+    }
+
+    fun getSyllabusWidgetPreset(context: Context): WidgetVisualPreset {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(SYLLABUS_WIDGET_PRESET, WidgetVisualPreset.Paper.key)
+        return WidgetVisualPreset.fromKey(raw)
+    }
+
+    fun setCountdownWidgetFamily(context: Context, family: WidgetStyleFamily) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(COUNTDOWN_WIDGET_FAMILY, family.key)
+            .apply()
+        triggerAll(context)
+    }
+
+    fun getCountdownWidgetFamily(context: Context): WidgetStyleFamily {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(COUNTDOWN_WIDGET_FAMILY, WidgetStyleFamily.Minimal.key)
+        return WidgetStyleFamily.fromKey(raw)
+    }
+
+    fun setSyllabusWidgetFamily(context: Context, family: WidgetStyleFamily) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(SYLLABUS_WIDGET_FAMILY, family.key)
+            .apply()
+        triggerAll(context)
+    }
+
+    fun getSyllabusWidgetFamily(context: Context): WidgetStyleFamily {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(SYLLABUS_WIDGET_FAMILY, WidgetStyleFamily.Agenda.key)
+        return WidgetStyleFamily.fromKey(raw)
+    }
+
+    fun setCountdownWidgetDensity(context: Context, density: WidgetInfoDensity) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(COUNTDOWN_WIDGET_DENSITY, density.key)
+            .apply()
+        triggerAll(context)
+    }
+
+    fun getCountdownWidgetDensity(context: Context): WidgetInfoDensity {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(COUNTDOWN_WIDGET_DENSITY, WidgetInfoDensity.Balanced.key)
+        return WidgetInfoDensity.fromKey(raw)
+    }
+
+    fun setSyllabusWidgetDensity(context: Context, density: WidgetInfoDensity) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(SYLLABUS_WIDGET_DENSITY, density.key)
+            .apply()
+        triggerAll(context)
+    }
+
+    fun getSyllabusWidgetDensity(context: Context): WidgetInfoDensity {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(SYLLABUS_WIDGET_DENSITY, WidgetInfoDensity.Balanced.key)
+        return WidgetInfoDensity.fromKey(raw)
+    }
+
+    fun setCountdownTypographyPreset(context: Context, preset: WidgetTypographyPreset) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(COUNTDOWN_WIDGET_TYPOGRAPHY, preset.key)
+            .apply()
+        triggerAll(context)
+    }
+
+    fun getCountdownTypographyPreset(context: Context): WidgetTypographyPreset {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(COUNTDOWN_WIDGET_TYPOGRAPHY, WidgetTypographyPreset.Strong.key)
+        return WidgetTypographyPreset.fromKey(raw)
+    }
+
+    fun setSyllabusTypographyPreset(context: Context, preset: WidgetTypographyPreset) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(SYLLABUS_WIDGET_TYPOGRAPHY, preset.key)
+            .apply()
+        triggerAll(context)
+    }
+
+    fun getSyllabusTypographyPreset(context: Context): WidgetTypographyPreset {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(SYLLABUS_WIDGET_TYPOGRAPHY, WidgetTypographyPreset.Notebook.key)
+        return WidgetTypographyPreset.fromKey(raw)
+    }
+
+    fun setGlobalWidgetTextScale(context: Context, scale: Int) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(GLOBAL_WIDGET_TEXT_SCALE, scale.coerceIn(80, 130))
+            .apply()
+        triggerAll(context)
+    }
+
+    fun getGlobalWidgetTextScale(context: Context): Int {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(GLOBAL_WIDGET_TEXT_SCALE, 100)
+            .coerceIn(80, 130)
+    }
+
+    fun setCountdownMicroIconsEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(COUNTDOWN_MICRO_ICONS, enabled)
+            .apply()
+        triggerAll(context)
+    }
+
+    fun isCountdownMicroIconsEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(COUNTDOWN_MICRO_ICONS, true)
+    }
+
+    fun getCountdownElementPreferences(
+        context: Context,
+        element: CountdownWidgetElement,
+    ): WidgetElementPreferences {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("COUNTDOWN_ELEMENT_${element.key}", null)
+        return decodeElementPreferences(
+            raw = raw,
+            defaultPosition = element.defaultPosition,
+            defaultScale = element.defaultScale,
+            defaultVisible = element.defaultVisible,
+        )
+    }
+
+    fun setCountdownElementPreferences(
+        context: Context,
+        element: CountdownWidgetElement,
+        preferences: WidgetElementPreferences,
+    ) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("COUNTDOWN_ELEMENT_${element.key}", encodeElementPreferences(preferences))
+            .apply()
+        triggerAll(context)
+    }
+
+    fun getCountdownElementSize(
+        context: Context,
+        element: CountdownWidgetElement,
+    ): Int {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt("COUNTDOWN_ELEMENT_SIZE_${element.key}", element.defaultSize)
+            .coerceIn(0, 50)
+    }
+
+    fun setCountdownElementSize(
+        context: Context,
+        element: CountdownWidgetElement,
+        size: Int,
+    ) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt("COUNTDOWN_ELEMENT_SIZE_${element.key}", size.coerceIn(0, 50))
+            .apply()
+        triggerAll(context)
+    }
+
+    fun resetCountdownElementSizes(context: Context) {
+        val editor = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+        CountdownWidgetElement.values().forEach { element ->
+            editor.remove("COUNTDOWN_ELEMENT_SIZE_${element.key}")
+        }
+        editor.apply()
+        triggerAll(context)
+    }
+
+    fun getSyllabusElementPreferences(
+        context: Context,
+        element: SyllabusWidgetElement,
+    ): WidgetElementPreferences {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("SYLLABUS_ELEMENT_${element.key}", null)
+        return decodeElementPreferences(
+            raw = raw,
+            defaultPosition = element.defaultPosition,
+            defaultScale = element.defaultScale,
+            defaultVisible = element.defaultVisible,
+        )
+    }
+
+    fun setSyllabusElementPreferences(
+        context: Context,
+        element: SyllabusWidgetElement,
+        preferences: WidgetElementPreferences,
+    ) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("SYLLABUS_ELEMENT_${element.key}", encodeElementPreferences(preferences))
+            .apply()
+        triggerAll(context)
+    }
+
+    fun getSyllabusElementSize(
+        context: Context,
+        element: SyllabusWidgetElement,
+    ): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val key = "SYLLABUS_ELEMENT_SIZE_${element.key}"
+        val legacyDefault = when (element) {
+            SyllabusWidgetElement.Flow -> getSyllabusFlowTextSize(context)
+            SyllabusWidgetElement.Status -> getSyllabusStatusTextSize(context)
+            else -> element.defaultSize
+        }
+        return if (prefs.contains(key)) {
+            prefs.getInt(key, legacyDefault)
+        } else {
+            legacyDefault
+        }.coerceIn(0, 50)
+    }
+
+    fun setSyllabusElementSize(
+        context: Context,
+        element: SyllabusWidgetElement,
+        size: Int,
+    ) {
+        val safe = size.coerceIn(0, 50)
+        val editor = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+        editor.putInt("SYLLABUS_ELEMENT_SIZE_${element.key}", safe)
+        when (element) {
+            SyllabusWidgetElement.Flow -> editor.putInt("SYLLABUS_FLOW_TEXT_SIZE", safe)
+            SyllabusWidgetElement.Status -> editor.putInt("SYLLABUS_STATUS_TEXT_SIZE", safe)
+            else -> Unit
+        }
+        editor.apply()
+        triggerAll(context)
+    }
+
+    fun resetSyllabusElementSizes(context: Context) {
+        val editor = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+        SyllabusWidgetElement.values().forEach { element ->
+            editor.remove("SYLLABUS_ELEMENT_SIZE_${element.key}")
+        }
+        editor.putInt("SYLLABUS_FLOW_TEXT_SIZE", SyllabusWidgetElement.Flow.defaultSize)
+        editor.putInt("SYLLABUS_STATUS_TEXT_SIZE", SyllabusWidgetElement.Status.defaultSize)
+        editor.apply()
+        triggerAll(context)
+    }
+
+    fun setSyllabusActiveHighlightStyle(context: Context, style: SyllabusActiveHighlightStyle) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("SYLLABUS_ACTIVE_HIGHLIGHT_STYLE", style.key)
+            .apply()
+        triggerAll(context)
+    }
+
+    fun getSyllabusActiveHighlightStyle(context: Context): SyllabusActiveHighlightStyle {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("SYLLABUS_ACTIVE_HIGHLIGHT_STYLE", SyllabusActiveHighlightStyle.Soft.key)
+        return SyllabusActiveHighlightStyle.fromKey(raw)
+    }
+
+    private fun encodeElementPreferences(preferences: WidgetElementPreferences): String {
+        val visibleFlag = if (preferences.visible) "1" else "0"
+        return listOf(visibleFlag, preferences.position.toString(), preferences.scale.key).joinToString("|")
+    }
+
+    private fun decodeElementPreferences(
+        raw: String?,
+        defaultPosition: Int,
+        defaultScale: WidgetElementScale,
+        defaultVisible: Boolean,
+    ): WidgetElementPreferences {
+        if (raw.isNullOrBlank()) {
+            return WidgetElementPreferences(
+                visible = defaultVisible,
+                position = defaultPosition,
+                scale = defaultScale,
+            )
+        }
+        val parts = raw.split("|")
+        val visible = parts.getOrNull(0) != "0"
+        val position = parts.getOrNull(1)?.toIntOrNull() ?: defaultPosition
+        val scale = WidgetElementScale.fromKey(parts.getOrNull(2))
+        return WidgetElementPreferences(
+            visible = visible,
+            position = position,
+            scale = scale,
+        )
+    }
+
+    fun setSpecialDaysLeadDays(context: Context, days: Int) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(SPECIAL_DAYS_LEAD_DAYS, days.coerceIn(0, 30))
+            .apply()
+        triggerAll(context)
+    }
+
+    fun getSpecialDaysLeadDays(context: Context): Int {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(SPECIAL_DAYS_LEAD_DAYS, 7)
+            .coerceIn(0, 30)
+    }
+
+    fun getSelectedSpecialTemplateIds(context: Context): Set<String> {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getStringSet(SPECIAL_DAYS_SELECTED_TEMPLATE_IDS, emptySet())
+            ?.toSet()
+            ?: emptySet()
+    }
+
+    fun setSelectedSpecialTemplate(context: Context, templateId: String, selected: Boolean) {
+        val current = getSelectedSpecialTemplateIds(context).toMutableSet()
+        if (selected) {
+            current.add(templateId)
+        } else {
+            current.remove(templateId)
+        }
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putStringSet(SPECIAL_DAYS_SELECTED_TEMPLATE_IDS, current)
+            .apply()
+        triggerAll(context)
+    }
+
+    fun getCustomSpecialReminders(context: Context): List<SpecialReminderEntry> {
+        val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(SPECIAL_DAYS_CUSTOM_ENTRIES, "")
+            .orEmpty()
+        if (raw.isBlank()) return emptyList()
+        return raw.split("\n")
+            .mapNotNull { line ->
+                val parts = line.split("||")
+                if (parts.size != 4) return@mapNotNull null
+                val id = parts[0]
+                val name = parts[1]
+                val startDate = parts[2]
+                val endDate = parts[3]
+                if (id.isBlank() || name.isBlank() || startDate.isBlank() || endDate.isBlank()) return@mapNotNull null
+                SpecialReminderEntry(id = id, name = name, startDate = startDate, endDate = endDate)
+            }
+    }
+
+    fun addCustomSpecialReminder(context: Context, name: String, startDate: String, endDate: String) {
+        val entry = SpecialReminderEntry(
+            id = "custom_${System.currentTimeMillis()}",
+            name = name.trim(),
+            startDate = startDate,
+            endDate = endDate,
+        )
+        val all = (getCustomSpecialReminders(context) + entry)
+            .takeLast(120)
+        persistCustomSpecialReminders(context, all)
+    }
+
+    fun removeCustomSpecialReminder(context: Context, id: String) {
+        val updated = getCustomSpecialReminders(context).filterNot { it.id == id }
+        persistCustomSpecialReminders(context, updated)
+    }
+
+    fun getActiveSpecialReminder(context: Context): ActiveSpecialReminder? {
+        val isEn = getAppLanguage(context) == "en"
+        val today = LocalDate.now()
+        val leadDays = getSpecialDaysLeadDays(context)
+        val candidates = mutableListOf<ActiveSpecialReminder>()
+
+        getSelectedSpecialTemplateIds(context).forEach { id ->
+            val template = SpecialDaysCatalog.byId(id) ?: return@forEach
+            val ranges = listOf(today.year - 1, today.year, today.year + 1)
+                .map { template.rangeForYear(it) }
+            val range = ranges
+                .filter { (_, end) -> !end.isBefore(today) }
+                .minByOrNull { (start, _) -> ChronoUnit.DAYS.between(today, start).coerceAtLeast(0) }
+                ?: return@forEach
+
+            val start = range.first
+            val end = range.second
+            val daysUntilStart = ChronoUnit.DAYS.between(today, start)
+            val daysUntilEnd = ChronoUnit.DAYS.between(today, end)
+            val isOngoing = !today.isBefore(start) && !today.isAfter(end)
+            if (isOngoing || (daysUntilStart in 0..leadDays.toLong())) {
+                candidates += ActiveSpecialReminder(
+                    name = template.name(isEn),
+                    startDate = start,
+                    endDate = end,
+                    daysUntilStart = daysUntilStart.coerceAtLeast(0),
+                    daysUntilEnd = daysUntilEnd.coerceAtLeast(0),
+                    isOngoing = isOngoing,
+                )
+            }
+        }
+
+        getCustomSpecialReminders(context).forEach { entry ->
+            val start = runCatching { LocalDate.parse(entry.startDate) }.getOrNull() ?: return@forEach
+            val end = runCatching { LocalDate.parse(entry.endDate) }.getOrNull() ?: start
+            val normalizedEnd = if (end.isBefore(start)) start else end
+            if (normalizedEnd.isBefore(today)) return@forEach
+
+            val daysUntilStart = ChronoUnit.DAYS.between(today, start)
+            val daysUntilEnd = ChronoUnit.DAYS.between(today, normalizedEnd)
+            val isOngoing = !today.isBefore(start) && !today.isAfter(normalizedEnd)
+            if (isOngoing || (daysUntilStart in 0..leadDays.toLong())) {
+                candidates += ActiveSpecialReminder(
+                    name = entry.name,
+                    startDate = start,
+                    endDate = normalizedEnd,
+                    daysUntilStart = daysUntilStart.coerceAtLeast(0),
+                    daysUntilEnd = daysUntilEnd.coerceAtLeast(0),
+                    isOngoing = isOngoing,
+                )
+            }
+        }
+
+        return candidates.minWithOrNull(
+            compareBy<ActiveSpecialReminder> { if (it.isOngoing) 0 else 1 }
+                .thenBy { if (it.isOngoing) it.daysUntilEnd else it.daysUntilStart }
+        )
+    }
+
+    private fun persistCustomSpecialReminders(context: Context, entries: List<SpecialReminderEntry>) {
+        val encoded = entries.joinToString("\n") { entry ->
+            listOf(entry.id, entry.name, entry.startDate, entry.endDate).joinToString("||")
+        }
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(SPECIAL_DAYS_CUSTOM_ENTRIES, encoded)
+            .apply()
+        triggerAll(context)
     }
 
     private fun triggerAll(context: Context) {

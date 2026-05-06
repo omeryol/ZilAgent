@@ -73,17 +73,9 @@ class CreateScheduleViewModel(
                 val schedules = bellDao.getSchedulesForProfileSync(id, 1)
                 
                 if (schedules.isNotEmpty()) {
-                    val lessons = schedules.filter { item ->
-                        !item.isBreak && (item.name.lowercase().contains("ders") || item.name.lowercase().contains("lesson"))
-                    }
-                    val firstLesson = schedules.find {
-                        val n = it.name.lowercase()
-                        n.contains("1. ders") || n.contains("1. lesson")
-                    }
-                    val assembly = schedules.find {
-                        val n = it.name.lowercase()
-                        n.contains("tören") || n.contains("assembly")
-                    }
+                    val lessons = schedules.filter(::isCountableLesson)
+                    val firstLesson = lessons.minByOrNull { it.startTime }
+                    val assembly = schedules.find(::isAssembly)
                     
                     val lessonDur = lessons.firstOrNull()?.let { it.endTime - it.startTime } ?: 40
                     val startTime = firstLesson?.startTime ?: 480
@@ -91,27 +83,21 @@ class CreateScheduleViewModel(
                     
                     // Try to find normal breaks (exclude lunch and prep)
                     val normalBreaks = schedules
-                        .filter {
-                            val n = it.name.lowercase()
-                            it.isBreak && (it.endTime - it.startTime) < 30 && !n.contains("haz") && !n.contains("prep")
-                        }
+                        .filter { it.isBreak && !isLunchBreak(it) && !isPrepBreak(it) }
                         .sortedBy { it.startTime }
                     val normalBreak = normalBreaks.firstOrNull()
                     val breakDur = normalBreak?.let { it.endTime - it.startTime } ?: 10
                     val firstBreakDur = normalBreaks.getOrNull(0)?.let { it.endTime - it.startTime }
                     val secondBreakDur = normalBreaks.getOrNull(1)?.let { it.endTime - it.startTime }
                     
-                    val preBell = schedules.find {
-                        val n = it.name.lowercase()
-                        n.contains("hazırlık") || n.contains("prep")
-                    }
+                    val preBell = schedules.find(::isPrepBreak)
                     val preBellDur = preBell?.let { it.endTime - it.startTime } ?: 0
                     val lessonStartNotify = schedules.any { !it.isBreak && it.notifyAtStart }
 
                     // Lunch break
-                    val lunchBreak = schedules.find { it.isBreak && (it.endTime - it.startTime) >= 30 }
+                    val lunchBreak = schedules.find(::isLunchBreak)
                     val lunchAfter = if (lunchBreak != null) {
-                        schedules.filter { !it.isBreak && it.endTime <= lunchBreak.startTime }.size
+                        schedules.count { isCountableLesson(it) && it.endTime <= lunchBreak.startTime }
                     } else null
                     val lunchDur = lunchBreak?.let { it.endTime - it.startTime } ?: 40
 
@@ -190,8 +176,6 @@ class CreateScheduleViewModel(
                 val lessonDuration = _uiState.value.lessonDuration.toIntOrNull() ?: 40
                 val breakDuration = _uiState.value.breakDuration.toIntOrNull() ?: 10
                 val appLanguage = com.zilagent.app.widget.WidgetStore.getAppLanguage(getApplication())
-                val firstBreakDuration = _uiState.value.firstBreakDuration.toIntOrNull()
-                val secondBreakDuration = _uiState.value.secondBreakDuration.toIntOrNull()
                 val start = _uiState.value.startTime
                 val lunchAfter = _uiState.value.lunchBreakAfter.toIntOrNull()
                 val lunchDuration = _uiState.value.lunchBreakDuration.toIntOrNull() ?: 45
@@ -235,8 +219,8 @@ class CreateScheduleViewModel(
                         firstLessonStart = start, // Note: ScheduleGenerator now puts Ceremony BEFORE this time
                         lessonDurationMinutes = lessonDuration,
                         breakDurationMinutes = breakDuration,
-                        firstBreakDurationMinutes = firstBreakDuration,
-                        secondBreakDurationMinutes = secondBreakDuration,
+                        firstBreakDurationMinutes = null,
+                        secondBreakDurationMinutes = null,
                         lessonCount = lessonCount,
                         lunchBreakAfterLesson = lunchAfter,
                         lunchBreakDurationMinutes = lunchDuration,
@@ -303,6 +287,44 @@ class CreateScheduleViewModel(
         return (1..7).joinToString(separator = "") { day ->
             if (days.contains(day)) "1" else "0"
         }
+    }
+
+    private fun isCountableLesson(item: com.zilagent.app.data.entity.BellSchedule): Boolean {
+        if (item.isBreak) return false
+        val lowered = normalizeScheduleName(item.name)
+        return lowered.contains("ders") || lowered.contains("lesson")
+    }
+
+    private fun isLunchBreak(item: com.zilagent.app.data.entity.BellSchedule): Boolean {
+        if (!item.isBreak) return false
+        val lowered = normalizeScheduleName(item.name)
+        return lowered.contains("ogle") || lowered.contains("lunch")
+    }
+
+    private fun isPrepBreak(item: com.zilagent.app.data.entity.BellSchedule): Boolean {
+        if (!item.isBreak) return false
+        val lowered = normalizeScheduleName(item.name)
+        return lowered.contains("hazirlik") || lowered.contains("prep")
+    }
+
+    private fun isAssembly(item: com.zilagent.app.data.entity.BellSchedule): Boolean {
+        val lowered = normalizeScheduleName(item.name)
+        return lowered.contains("toren") || lowered.contains("assembly")
+    }
+
+    private fun normalizeScheduleName(name: String): String {
+        return name
+            .lowercase()
+            .replace("ö", "o")
+            .replace("ğ", "g")
+            .replace("ı", "i")
+            .replace("ş", "s")
+            .replace("ü", "u")
+            .replace("Ã¶", "o")
+            .replace("ÄŸ", "g")
+            .replace("Ä±", "i")
+            .replace("ÅŸ", "s")
+            .replace("Ã¼", "u")
     }
 
     companion object {

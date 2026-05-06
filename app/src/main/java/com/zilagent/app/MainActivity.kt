@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -28,7 +30,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Force a full widget state sync when app opens so stale RemoteViews are replaced.
-        runCatching { com.zilagent.app.manager.BellManager(this).refreshWidgetState() }
+        runCatching {
+            com.zilagent.app.manager.BellManager(this).apply {
+                refreshWidgetState()
+                scheduleMinuteTick()
+            }
+        }
         setContent {
             // Reactive Theme Mode State
             // Reactive Theme States
@@ -73,9 +80,14 @@ class MainActivity : ComponentActivity() {
                         style = touchAnimationStyle,
                     )
                 ) {
+                    val animatedBg by animateColorAsState(
+                        targetValue = MaterialTheme.colorScheme.background,
+                        animationSpec = tween(durationMillis = 350),
+                        label = "theme_bg_anim",
+                    )
                     Surface(
                         modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.background
+                        color = animatedBg
                     ) {
                         val startExam = intent.getBooleanExtra("START_EXAM_MODE", false)
                         ZilAgentAppNavHost(startExamMode = startExam)
@@ -88,7 +100,12 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         // Also refresh when returning to foreground to avoid stale widget cache on launcher.
-        runCatching { com.zilagent.app.manager.BellManager(this).refreshWidgetState() }
+        runCatching {
+            com.zilagent.app.manager.BellManager(this).apply {
+                refreshWidgetState()
+                scheduleMinuteTick()
+            }
+        }
         runCatching { com.zilagent.app.widget.PanoramicCountdownWidget.updateAll(this) }
         runCatching { com.zilagent.app.widget.SyllabusWidget.updateAll(this) }
     }
@@ -110,21 +127,30 @@ fun ZilAgentAppNavHost(startExamMode: Boolean = false) {
 
     NavHost(navController = navController, startDestination = startDestination) {
         composable("onboarding") {
-            OnboardingScreen(onFinish = {
-                WidgetStore.setOnboardingCompleted(context)
-                navController.navigate("dashboard") {
-                    popUpTo("onboarding") { inclusive = true }
-                }
-            })
+            OnboardingScreen(
+                onFinish = {
+                    WidgetStore.setOnboardingCompleted(context)
+                    navController.navigate("dashboard") {
+                        popUpTo("onboarding") { inclusive = true }
+                    }
+                },
+                onFinishToSettings = {
+                    WidgetStore.setOnboardingCompleted(context)
+                    navController.navigate("dashboard") {
+                        popUpTo("onboarding") { inclusive = true }
+                    }
+                    navController.navigate("settings")
+                },
+            )
         }
         composable("dashboard") {
             DashboardScreen(
                 onNavigateToSettings = { navController.navigate("settings") },
-                onNavigateToCreate = { navController.navigate("create_schedule") },
+                onNavigateToCreate = { profileId ->
+                    navController.navigate("create_schedule?profileId=$profileId")
+                },
                 onNavigateToExamMode = { navController.navigate("exam_mode") },
                 onNavigateToProfiles = { navController.navigate("profiles") },
-                onNavigateToClasses = { navController.navigate("classes") },
-                onNavigateToSubjects = { navController.navigate("subjects") }
             )
         }
         composable("profiles") {

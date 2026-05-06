@@ -1,10 +1,4 @@
-﻿<resources>
-    <string name="app_name">ZilAgent</string>
-    <string name="shortcut_exam_short">Sınav Modu</string>
-    <string name="shortcut_exam_long">Sınav Sayacını Başlat</string>
-    <string name="shortcut_create_short">Yeni Program</string>
-    <string name="shortcut_create_long">Ders Programı Oluştur</string>
-    <string name="widget_label_countdown">Canlı Geri Sayım</string>
-    <string name="widget_label_syllabus">Ders Akışı</string>
-    <string name="tile_label_exam">ZilAgent Sınav</string>
+<resources>
+    <string name="widget_label_countdown">Canlı Akış</string>
+    <string name="widget_label_syllabus">Haftalık Program</string>
 </resources>

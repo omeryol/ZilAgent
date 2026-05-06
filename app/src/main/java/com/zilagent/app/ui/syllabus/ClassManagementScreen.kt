@@ -96,31 +96,31 @@ fun ClassManagementScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 items(uiState.classes) { schoolClass ->
                     GlassCard(modifier = Modifier.fillMaxWidth()) {
                         Row(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                                 Box(
                                     modifier = Modifier
-                                        .size(24.dp)
+                                        .size(18.dp)
                                         .clip(CircleShape)
                                         .background(Color(android.graphics.Color.parseColor(schoolClass.colorHex))),
                                 )
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Text(schoolClass.name, style = MaterialTheme.typography.titleMedium, color = Color.White)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(schoolClass.name, style = MaterialTheme.typography.titleSmall, color = Color.White)
                             }
                             Row {
                                 IconButton(onClick = { editingClass = schoolClass }) {
-                                    GradientIcon(Icons.Default.Edit, IconGradients.Purple, size = 32.dp, iconSize = 18.dp)
+                                    GradientIcon(Icons.Default.Edit, IconGradients.Purple, size = 28.dp, iconSize = 16.dp)
                                 }
                                 IconButton(onClick = { viewModel.deleteClass(schoolClass) }) {
-                                    GradientIcon(Icons.Default.Delete, IconGradients.Lava, size = 32.dp, iconSize = 18.dp)
+                                    GradientIcon(Icons.Default.Delete, IconGradients.Lava, size = 28.dp, iconSize = 16.dp)
                                 }
                             }
                         }

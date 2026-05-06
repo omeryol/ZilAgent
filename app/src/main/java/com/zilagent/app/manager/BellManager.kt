@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import com.zilagent.app.data.AppDatabase
 import com.zilagent.app.data.entity.BellSchedule
 import com.zilagent.app.receiver.BellReceiver
@@ -19,9 +20,10 @@ class BellManager(private val context: Context) {
     private fun t(tr: String, en: String): String = if (WidgetStore.getAppLanguage(context) == "en") en else tr
     fun getAppLanguage(): String = WidgetStore.getAppLanguage(context)
 
-    fun scheduleDailyAlarms(schedules: List<BellSchedule>) {
+    suspend fun scheduleDailyAlarms(schedules: List<BellSchedule>) {
         if (isHolidayToday()) {
             refreshWidgetState()
+            scheduleMinuteTick()
             return
         }
         val now = LocalTime.now()
@@ -70,18 +72,40 @@ class BellManager(private val context: Context) {
     fun scheduleMinuteTick() {
         val calendar = Calendar.getInstance().apply {
             add(Calendar.MINUTE, 1)
-            set(Calendar.SECOND, 1)
+            set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }
         val intent = Intent(context, BellReceiver::class.java).apply {
-            putExtra("IS_WIDGET_UPDATE", true)
             putExtra("IS_MINUTE_TICK", true)
         }
-        val pendingIntent = PendingIntent.getBroadcast(context, 9991, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val exactPendingIntent = PendingIntent.getBroadcast(
+            context,
+            9991,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val repeatingPendingIntent = PendingIntent.getBroadcast(
+            context,
+            9992,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        setBestEffortAlarm(calendar.timeInMillis, exactPendingIntent)
         try {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
+            alarmManager.setInexactRepeating(
+                AlarmManager.RTC,
+                calendar.timeInMillis,
+                60_000L,
+                repeatingPendingIntent,
+            )
+        } catch (_: SecurityException) {
+            alarmManager.set(
+                AlarmManager.RTC,
+                calendar.timeInMillis,
+                repeatingPendingIntent,
+            )
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "scheduleMinuteTick: inexact repeating alarm failed", e)
         }
     }
 
@@ -97,11 +121,7 @@ class BellManager(private val context: Context) {
             putExtra("IS_CUSTOM_MODE_FINISH", true)
         }
         val pendingIntent = PendingIntent.getBroadcast(context, 10011, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        try {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        setBestEffortAlarm(calendar.timeInMillis, pendingIntent)
     }
 
     private fun scheduleAlarm(minutesFromMidnight: Int, title: String, requestCode: Int, isWidgetUpdate: Boolean, enableDnd: Boolean?) {
@@ -118,14 +138,24 @@ class BellManager(private val context: Context) {
             if (enableDnd != null) putExtra("DND_ACTION", if (enableDnd) 1 else 0)
         }
         val pendingIntent = PendingIntent.getBroadcast(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        setBestEffortAlarm(calendar.timeInMillis, pendingIntent)
+    }
+
+    private fun setBestEffortAlarm(triggerAtMillis: Long, pendingIntent: PendingIntent) {
         try {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+        } catch (_: SecurityException) {
+            try {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+            } catch (_: Exception) {
+                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+            }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "setBestEffortAlarm: failed to schedule alarm", e)
         }
     }
 
-    fun isHolidayToday(): Boolean {
+    suspend fun isHolidayToday(): Boolean {
         val mask = WidgetStore.getWorkingDays(context)
         val dayOfWeek = LocalDate.now().dayOfWeek.value
         if (mask.getOrNull(dayOfWeek - 1) == '0') return true
@@ -133,15 +163,41 @@ class BellManager(private val context: Context) {
         val today = LocalDate.now()
         return try {
             val db = AppDatabase.getDatabase(context)
-            kotlinx.coroutines.runBlocking {
-                db.holidayDao().getAllHolidaysSync().any { holiday ->
-                    val start = LocalDate.parse(holiday.startDate)
-                    val end = LocalDate.parse(holiday.endDate)
-                    !today.isBefore(start) && !today.isAfter(end)
-                }
+            db.holidayDao().getAllHolidaysSync().any { holiday ->
+                val start = LocalDate.parse(holiday.startDate)
+                val end = LocalDate.parse(holiday.endDate)
+                !today.isBefore(start) && !today.isAfter(end)
             }
         } catch (e: Exception) {
+            Log.e(TAG, "isHolidayToday: DB error, defaulting to false", e)
             false
         }
+    }
+
+    suspend fun getTodayHolidayName(): String? {
+        val today = LocalDate.now()
+        val mask = WidgetStore.getWorkingDays(context)
+        val dayOfWeek = today.dayOfWeek.value
+
+        if (mask.getOrNull(dayOfWeek - 1) == '0') {
+            return t("Haftalık Tatil", "Weekly Day Off")
+        }
+
+        return try {
+            val db = AppDatabase.getDatabase(context)
+            val match = db.holidayDao().getAllHolidaysSync().firstOrNull { holiday ->
+                val start = LocalDate.parse(holiday.startDate)
+                val end = LocalDate.parse(holiday.endDate)
+                !today.isBefore(start) && !today.isAfter(end)
+            }
+            match?.name
+        } catch (e: Exception) {
+            Log.e(TAG, "getTodayHolidayName: DB error", e)
+            null
+        }
+    }
+
+    companion object {
+        private const val TAG = "BellManager"
     }
 }

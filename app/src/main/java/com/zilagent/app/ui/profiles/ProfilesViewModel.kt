@@ -9,6 +9,8 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.zilagent.app.data.AppDatabase
 import com.zilagent.app.data.dao.BellDao
+import com.zilagent.app.data.dao.LessonNoteDao
+import com.zilagent.app.data.dao.SyllabusDao
 import com.zilagent.app.data.entity.Profile
 import com.zilagent.app.manager.BellManager
 import com.zilagent.app.widget.WidgetStore
@@ -25,6 +27,8 @@ data class ProfilesUiState(
 class ProfilesViewModel(
     application: Application,
     private val bellDao: BellDao,
+    private val syllabusDao: SyllabusDao,
+    private val lessonNoteDao: LessonNoteDao,
     private val bellManager: BellManager
 ) : AndroidViewModel(application) {
 
@@ -71,6 +75,46 @@ class ProfilesViewModel(
         }
     }
 
+    fun duplicateProfile(profile: Profile) {
+        viewModelScope.launch {
+            val copyName = buildDuplicateName(
+                originalName = profile.name,
+                existingNames = bellDao.getAllProfilesSync().map { it.name },
+            )
+            val newProfileId = bellDao.insertProfile(Profile(name = copyName, isActive = false))
+
+            val schedules = bellDao.getAllSchedulesForProfileSync(profile.id)
+                .map { it.copy(id = 0, profileId = newProfileId) }
+            if (schedules.isNotEmpty()) {
+                bellDao.insertSchedules(schedules)
+            }
+
+            val syllabusEntries = syllabusDao.getAllSyllabusSync(profile.id)
+                .map { it.copy(profileId = newProfileId) }
+            if (syllabusEntries.isNotEmpty()) {
+                syllabusDao.insertSyllabusEntries(syllabusEntries)
+            }
+
+            val notes = lessonNoteDao.getNotesForProfileSync(profile.id)
+                .map { it.copy(id = 0, profileId = newProfileId, updatedAt = System.currentTimeMillis()) }
+            if (notes.isNotEmpty()) {
+                lessonNoteDao.insertAll(notes)
+            }
+        }
+    }
+
+    private fun buildDuplicateName(originalName: String, existingNames: List<String>): String {
+        val existing = existingNames.toSet()
+        val base = "$originalName Kopya"
+        if (base !in existing) return base
+        var index = 2
+        while (true) {
+            val candidate = "$base $index"
+            if (candidate !in existing) return candidate
+            index++
+        }
+    }
+
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
@@ -79,6 +123,8 @@ class ProfilesViewModel(
                 ProfilesViewModel(
                     application = application,
                     bellDao = db.bellDao(),
+                    syllabusDao = db.syllabusDao(),
+                    lessonNoteDao = db.lessonNoteDao(),
                     bellManager = BellManager(application)
                 )
             }

@@ -5,26 +5,32 @@ import android.content.Context
 import android.content.Intent
 import com.zilagent.app.data.AppDatabase
 import com.zilagent.app.manager.BellManager
-import kotlinx.coroutines.GlobalScope
+import com.zilagent.app.worker.WidgetHeartbeatWorker
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+            WidgetHeartbeatWorker.schedule(context)
             val bellManager = BellManager(context)
             val db = AppDatabase.getDatabase(context)
             
             val goAsync = goAsync()
-            GlobalScope.launch {
+            CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val profile = db.bellDao().getActiveProfileSync()
                     if (profile != null) {
                         val today = java.time.LocalDate.now().dayOfWeek.value
                         val schedules = db.bellDao().getSchedulesForProfileSync(profile.id, today)
                         bellManager.scheduleDailyAlarms(schedules)
+                    } else {
+                        bellManager.refreshWidgetState()
+                        bellManager.scheduleMinuteTick()
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    android.util.Log.e("BootReceiver", "Failed to reschedule alarms after boot", e)
                 } finally {
                     goAsync.finish()
                 }

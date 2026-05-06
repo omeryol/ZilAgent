@@ -56,6 +56,9 @@ interface BellDao {
     @Query("SELECT * FROM bell_schedules WHERE profileId = :profileId AND (dayOfWeek = :dayOfWeek OR dayOfWeek = 0) ORDER BY orderIndex ASC")
     suspend fun getSchedulesForProfileSync(profileId: Long, dayOfWeek: Int): List<BellSchedule>
 
+    @Query("SELECT * FROM bell_schedules WHERE profileId = :profileId ORDER BY dayOfWeek ASC, orderIndex ASC")
+    fun getAllSchedulesForProfile(profileId: Long): Flow<List<BellSchedule>>
+
     @Query("SELECT * FROM bell_schedules WHERE profileId = :profileId ORDER BY orderIndex ASC")
     suspend fun getAllSchedulesForProfileSync(profileId: Long): List<BellSchedule>
 

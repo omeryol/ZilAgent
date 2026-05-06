@@ -60,6 +60,7 @@
         <receiver
             android:name=".widget.PanoramicCountdownWidget"
             android:exported="true"
+            android:permission="android.permission.BIND_APPWIDGET"
             android:label="@string/widget_label_countdown">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -72,6 +73,7 @@
         <receiver
             android:name=".widget.SyllabusWidget"
             android:exported="true"
+            android:permission="android.permission.BIND_APPWIDGET"
             android:label="@string/widget_label_syllabus">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

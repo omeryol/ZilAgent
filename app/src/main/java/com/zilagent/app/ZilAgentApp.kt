@@ -7,14 +7,21 @@ import com.zilagent.app.data.entity.Quote
 import com.zilagent.app.util.QuoteConstants
 import com.zilagent.app.util.SubjectConstants
 import com.zilagent.app.widget.WidgetStore
-import kotlinx.coroutines.GlobalScope
+import com.zilagent.app.worker.DailyRefreshWorker
+import com.zilagent.app.worker.WidgetHeartbeatWorker
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class ZilAgentApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        
-        GlobalScope.launch {
+
+        // Schedule WorkManager task for daily alarm refresh
+        DailyRefreshWorker.schedule(this)
+        WidgetHeartbeatWorker.schedule(this)
+
+        CoroutineScope(Dispatchers.IO).launch {
             val db = AppDatabase.getDatabase(this@ZilAgentApp)
             val dao = db.quoteDao()
             val language = WidgetStore.getAppLanguage(this@ZilAgentApp)
